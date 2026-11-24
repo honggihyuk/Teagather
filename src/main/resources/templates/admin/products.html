@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/admin}">
+<head><title>상품</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>관리자</span><span class="sep">›</span><span>메뉴</span><span class="sep">›</span><b>상품</b></nav>
+<main layout:fragment="content" class="content">
+    <div class="page-header">
+        <div><h1 class="page-title">상품</h1><p class="page-sub" th:text="|메뉴 ${products.size()}개|">메뉴</p></div>
+        <div class="actions"><a class="btn primary" th:href="@{/admin/products/new}"><th:block th:replace="~{fragments/ui :: icon('plus')}"/>상품 등록</a></div>
+    </div>
+
+    <div class="row wrap" style="gap:12px">
+        <nav class="segmented" aria-label="카테고리">
+            <a th:href="@{/admin/products(status=${status})}" th:classappend="${category == null} ? 'on'">전체</a>
+            <a th:each="c : ${categories}" th:href="@{/admin/products(category=${c.id},status=${status})}" th:classappend="${category == c.id} ? 'on'" th:text="${c.name}">커피</a>
+        </nav>
+        <form th:action="@{/admin/products}" method="get" class="row">
+            <input type="hidden" name="category" th:value="${category}" th:if="${category}">
+            <label for="status" class="sr-only">상태</label>
+            <select class="select" id="status" name="status" data-auto-submit style="width:auto">
+                <option value="">모든 상태</option>
+                <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${s.label}" th:selected="${status == s}">판매 중</option>
+            </select>
+        </form>
+    </div>
+
+    <section class="card flush">
+        <div class="table-box">
+            <table class="t">
+                <thead><tr><th>메뉴</th><th>카테고리</th><th class="num">가격</th><th class="num">원가 · 마진</th><th>상태</th><th>표시</th><th>옵션</th><th></th></tr></thead>
+                <tbody>
+                <tr th:each="p : ${products}" th:classappend="${p.status.name() == 'HIDDEN'} ? 'dim'">
+                    <td class="cell-title"><div class="row" style="gap:12px">
+                        <div class="tile sm" th:classappend="|tone-${p.category.toneOrDefault}|"><th:block th:replace="~{fragments/ui :: icon(${p.category.iconOrDefault})}"/></div>
+                        <div><b th:text="${p.name}">메뉴</b><div class="muted small"><span th:each="t, st : ${p.tagList}" th:text="|#${t} |">#태그</span></div></div></div></td>
+                    <td th:text="${p.category.name}">커피</td>
+                    <td class="num"><th:block th:text="|${#numbers.formatInteger(p.price, 1, 'COMMA')}원|">0원</th:block>
+                        <div class="small brown" th:if="${discounts[p.id] != null}" th:text="|할인 ${discounts[p.id].valueText}|">할인</div></td>
+                    <td class="num"><th:block th:text="|${#numbers.formatInteger(p.cost, 1, 'COMMA')}원|">0원</th:block><div class="muted small" th:text="|${p.marginPercent}%|">0%</div></td>
+                    <td><span th:replace="~{fragments/ui :: chip(${p.status.chip}, ${p.status.label})}"></span></td>
+                    <td><div class="row wrap" style="gap:4px"><span class="chip solid" th:if="${p.todayMenu}">오늘의 메뉴</span><span class="chip dark" th:if="${p.fresh}">NEW</span></div></td>
+                    <td class="muted small" th:text="${p.optionGroups.isEmpty()} ? '-' : ${#strings.listJoin(p.optionGroups.![name], ', ')}">온도, 사이즈</td>
+                    <td data-label="" class="nowrap">
+                        <a class="btn sm" th:href="@{/admin/products/{id}/edit(id=${p.id})}">수정</a>
+                        <form th:if="${p.status.visible}" th:action="@{/admin/products/{id}/status(id=${p.id})}" method="post" class="inline">
+                            <button type="submit" class="btn sm ghost" th:text="${p.status.name() == 'ON_SALE'} ? '품절로' : '판매 재개'">품절로</button></form>
+                        <form th:action="@{/admin/products/{id}/delete(id=${p.id})}" method="post" class="inline">
+                            <button type="submit" class="btn sm ghost" th:attr="data-confirm=|${p.name} 을(를) 지울까요?|"
+                                    data-confirm-body="주문 기록이 있는 메뉴는 지우지 않고 숨김으로 바꿔요." data-confirm-ok="지우기" data-danger>지우기</button></form>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+            <div class="empty" th:if="${products.isEmpty()}">조건에 맞는 메뉴가 없어요.</div>
+        </div>
+    </section>
+</main>
+</body>
+</html>

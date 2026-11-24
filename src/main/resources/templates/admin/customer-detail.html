@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/admin}">
+<head><title th:text="${c.displayName}">고객</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>관리자</span><span class="sep">›</span><a th:href="@{/admin/customers}">고객 정보</a><span class="sep">›</span><b th:text="${c.displayName}">고객</b></nav>
+<main layout:fragment="content" class="content">
+    <div class="page-header">
+        <div class="row" style="gap:16px">
+            <span class="avatar lg" th:text="${c.initials}">민준</span>
+            <div><h1 class="page-title" th:text="${c.displayName}">김민준</h1>
+                <div class="row wrap" style="margin-top:8px">
+                    <span class="chip outline" th:text="${c.username}">customer1</span>
+                    <span class="chip solid" th:text="|${c.grade.label} 등급|">일반</span>
+                    <span class="chip" th:if="${c.segmentLabel}" th:classappend="${c.segmentCode == 'AT_RISK'} ? 'red' : 'cream'" th:text="${c.segmentLabel}">단골</span>
+                    <span class="chip" th:if="${c.churnPercent != null}" th:classappend="${c.churnPercent >= 60} ? 'red' : 'grey'" th:text="|이탈 위험 ${c.churnPercent}%|">0%</span>
+                    <span class="chip red" th:if="${!c.active}">정지</span>
+                </div></div>
+        </div>
+        <div class="actions">
+            <form th:action="@{/admin/customers/{id}/active(id=${c.id})}" method="post" class="inline">
+                <button type="submit" class="btn" th:classappend="${c.active} ? 'danger'"
+                        th:attr="data-confirm=${c.active} ? '이 고객을 정지할까요?' : '이 고객을 다시 사용하도록 할까요?'"
+                        data-confirm-body="정지하면 로그인할 수 없어요." th:text="${c.active} ? '정지' : '다시 사용'">정지</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="grid grid-4">
+        <div class="card kpi"><div class="label">누적 결제</div><div class="value brown tnum" th:text="|${#numbers.formatInteger(c.totalSpent, 1, 'COMMA')}원|">0원</div></div>
+        <div class="card kpi"><div class="label">주문</div><div class="value tnum"><th:block th:text="${c.orderCount}">0</th:block><small>번</small></div>
+            <div class="foot" th:text="|평균 ${#numbers.formatInteger(c.avgBasket, 1, 'COMMA')}원|">평균</div></div>
+        <div class="card kpi"><div class="label">포인트</div><div class="value tnum" th:text="|${#numbers.formatInteger(c.point, 1, 'COMMA')}P|">0P</div></div>
+        <div class="card kpi"><div class="label">자주 오는 시간</div><div class="value" style="font-size:22px" th:text="${favoriteSlot}">아침</div></div>
+    </div>
+
+    <div class="split">
+        <section class="card flush">
+            <div class="card-head"><h2>최근 주문</h2><span class="sub">최근 20건</span></div>
+            <div class="table-box">
+                <table class="t">
+                    <thead><tr><th>주문</th><th>시각</th><th class="num">금액</th><th>상태</th></tr></thead>
+                    <tbody>
+                    <tr th:each="o : ${orders}" th:classappend="${o.status.name() == 'CANCELED'} ? 'dim'">
+                        <td class="cell-title"><b th:text="${o.summary}">메뉴</b><div class="muted small" th:text="${o.orderNo}">번호</div></td>
+                        <td class="tnum" th:text="${#temporals.format(o.orderedAt, 'yyyy.M.d HH:mm')}">시각</td>
+                        <td class="num" th:text="|${#numbers.formatInteger(o.payAmount, 1, 'COMMA')}원|">0원</td>
+                        <td><span th:replace="~{fragments/ui :: chip(${o.status.chip}, ${o.status.label})}"></span></td>
+                    </tr>
+                    </tbody>
+                </table>
+                <div class="empty" th:if="${orders.isEmpty()}">주문이 없어요.</div>
+            </div>
+        </section>
+        <div class="stack" style="gap:16px">
+            <section class="card">
+                <div class="card-head"><h2>기본 정보</h2></div>
+                <dl class="seg-card" style="display:grid;grid-template-columns:auto 1fr;gap:8px 16px;margin:0">
+                    <dt class="muted">연락처</dt><dd style="margin:0" th:text="${c.phone ?: '-'}">-</dd>
+                    <dt class="muted">이메일</dt><dd style="margin:0" th:text="${c.email ?: '-'}">-</dd>
+                    <dt class="muted">가입일</dt><dd style="margin:0" th:text="${#temporals.format(c.created, 'yyyy.M.d')}">-</dd>
+                    <dt class="muted">마지막 주문</dt><dd style="margin:0" th:text="${c.lastOrderAt != null} ? ${#temporals.format(c.lastOrderAt, 'yyyy.M.d HH:mm')} : '-'">-</dd>
+                    <dt class="muted">혜택 알림</dt><dd style="margin:0" th:text="${c.marketingAgree} ? '받음' : '안 받음'">-</dd>
+                </dl>
+            </section>
+            <section class="card">
+                <div class="card-head"><h2>자주 사는 메뉴</h2></div>
+                <div class="hbars"><div class="hbar" th:each="f, st : ${favorites}" style="grid-template-columns:minmax(0,1fr) auto">
+                    <span class="name" th:text="|${st.count}. ${f[1]}|">메뉴</span><span class="v" th:text="|${f[2]}개|">0개</span></div></div>
+                <div class="muted" th:if="${favorites.isEmpty()}">아직 없어요.</div>
+            </section>
+            <section class="card soft">
+                <div class="card-head"><h2>AI 추천 메뉴</h2></div>
+                <div class="cart-line" th:each="r : ${recommended}" style="grid-template-columns:52px minmax(0,1fr)">
+                    <div class="tile sm" th:classappend="|tone-${r.product.category.toneOrDefault}|"><th:block th:replace="~{fragments/ui :: icon(${r.product.category.iconOrDefault})}"/></div>
+                    <div><b th:text="${r.product.name}">메뉴</b><div class="muted small" th:text="${r.reason}">이유</div></div>
+                </div>
+                <div class="muted" th:if="${recommended.isEmpty()}">추천이 아직 없어요 (주문 기록이 필요해요).</div>
+            </section>
+        </div>
+    </div>
+</main>
+</body>
+</html>

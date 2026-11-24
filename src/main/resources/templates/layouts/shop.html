@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="ko"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#ffffff">
+    <title layout:title-pattern="$CONTENT_TITLE · Teagather">Teagather</title>
+    <link rel="icon" type="image/png" th:href="@{/images/logo-badge-brown-trim.png}">
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<!-- 고객 사이트 레이아웃 : 상단 바(로고 · 메뉴 · 장바구니 · 내 정보) + 본문 + 바닥글 -->
+<body class="ui" th:with="u=${currentUri ?: ''}">
+<header class="shop-header">
+    <div class="in">
+        <a class="brand" th:href="@{/}" aria-label="Teagather 홈"><img th:src="@{/images/logo-wordmark.png}" alt="Teagather"></a>
+        <nav class="shop-nav" aria-label="메뉴">
+            <a th:href="@{/}" th:classappend="${u == '/'} ? 'on'">홈</a>
+            <a th:href="@{/menu}" th:classappend="${#strings.startsWith(u, '/menu')} ? 'on'">메뉴</a>
+            <a sec:authorize="isAuthenticated()" th:href="@{/orders}" th:classappend="${#strings.startsWith(u, '/orders')} ? 'on'">주문 내역</a>
+        </nav>
+        <div class="right">
+            <a class="icon-btn" th:href="@{/cart}" aria-label="장바구니" title="장바구니">
+                <th:block th:replace="~{fragments/ui :: icon('cart')}"/>
+                <span class="dot" th:if="${cartCount != null and cartCount > 0}" th:text="${cartCount}">2</span>
+            </a>
+            <a sec:authorize="!isAuthenticated()" class="btn sm" th:href="@{/member/login}">로그인</a>
+            <a sec:authorize="!isAuthenticated()" class="btn sm primary" th:href="@{/member/signup}">회원가입</a>
+            <a sec:authorize="isAuthenticated()" class="row" th:href="@{/me}" title="내 정보" th:if="${loginMember != null}">
+                <span class="avatar" th:text="${loginMember.initials}">민준</span>
+            </a>
+            <form sec:authorize="isAuthenticated()" th:action="@{/member/logout}" method="post" class="inline">
+                <button type="submit" class="icon-btn" aria-label="로그아웃" title="로그아웃"><th:block th:replace="~{fragments/ui :: icon('logout')}"/></button>
+            </form>
+        </div>
+    </div>
+</header>
+
+<main class="shop-main" layout:fragment="content"></main>
+
+<footer class="shop-foot">
+    <div class="in">
+        <img th:src="@{/images/logo-wordmark.png}" alt="" height="28">
+        <span>Teagather · 차와 사람이 모이는 곳</span>
+        <span class="spacer"></span>
+        <a th:href="@{/admin/login}">관리자</a>
+    </div>
+</footer>
+
+<template data-toast th:if="${shopMessage}" th:text="${shopMessage}"></template>
+<template data-toast="error" th:if="${errorMessage}" th:text="${errorMessage}"></template>
+<script th:src="@{/js/app.js}"></script>
+</body>
+</html>

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/admin}">
+<head><title>고객 분석</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>관리자</span><span class="sep">›</span><span>고객</span><span class="sep">›</span><b>고객 분석</b></nav>
+<main layout:fragment="content" class="content">
+    <div class="page-header">
+        <div><h1 class="page-title">고객 분석</h1><p class="page-sub">주문 기록으로 고객을 다섯 무리로 나누고, 21일 안에 다시 오지 않을 확률을 예측해요.</p></div>
+    </div>
+
+    <section th:replace="~{admin/fragments :: runCard(${run}, ${latest}, ${running}, 'customers')}"></section>
+
+    <div class="grid grid-5" th:if="${!segments.isEmpty()}">
+        <a class="card seg-card" th:each="s : ${segments}" th:href="@{/admin/customers(segment=${s.code})}">
+            <div class="row"><span th:replace="~{fragments/ui :: chip(${s.chip}, ${s.label})}"></span><span class="spacer"></span>
+                <span class="muted small" th:text="|${s.customerCount * 100 / segmentTotal}%|">20%</span></div>
+            <div class="count"><th:block th:text="${s.customerCount}">0</th:block><small class="muted" style="font-size:14px;margin-left:2px">명</small></div>
+            <div class="progress" th:classappend="${s.code == 'AT_RISK'} ? 'red' : (${s.code == 'VIP'} ? 'brown')"><i th:style="|width:${s.customerCount * 100 / segmentTotal}%|"></i></div>
+            <p class="muted small" th:text="${s.description}">설명</p>
+            <dl>
+                <dt>평균 주문 (90일)</dt><dd th:text="|${#numbers.formatDecimal(s.avgOrders, 1, 1)}번|">0</dd>
+                <dt>평균 결제 (90일)</dt><dd th:text="|${#numbers.formatInteger(s.avgSpent, 1, 'COMMA')}원|">0</dd>
+                <dt>마지막 주문 뒤</dt><dd th:text="|${#numbers.formatDecimal(s.avgRecency, 1, 0)}일|">0</dd>
+                <dt>많이 산 종류</dt><dd th:text="${s.topCategory}">커피</dd>
+            </dl>
+            <div class="action"><b>추천 액션</b> · <span th:text="${s.action}">쿠폰</span></div>
+        </a>
+    </div>
+
+    <div class="split">
+        <section class="card flush">
+            <div class="card-head"><h2>이탈 위험이 높은 고객</h2><span class="sub">상위 10명</span>
+                <a class="more" th:href="@{/admin/customers(sort='risk')}">전체 ›</a></div>
+            <div class="table-box">
+                <table class="t">
+                    <thead><tr><th>고객</th><th>이탈 위험</th><th>고객군</th><th>마지막 주문</th><th class="num">누적 금액</th></tr></thead>
+                    <tbody>
+                    <tr th:each="c : ${churnTop}">
+                        <td class="cell-title"><a th:href="@{/admin/customers/{id}(id=${c.id})}"><b th:text="${c.displayName}">고객</b></a>
+                            <div class="muted small" th:text="${c.username}">id</div></td>
+                        <td style="min-width:160px"><div class="row"><div class="progress red" style="flex:1"><i th:style="|width:${c.churnPercent}%|"></i></div>
+                            <b class="tnum" th:text="|${c.churnPercent}%|">0%</b></div></td>
+                        <td><span class="chip" th:classappend="${c.segmentCode == 'AT_RISK'} ? 'red' : 'cream'" th:text="${c.segmentLabel}">군</span></td>
+                        <td class="tnum" th:text="${c.lastOrderAt != null} ? ${#temporals.format(c.lastOrderAt, 'yyyy.M.d')} : '-'">-</td>
+                        <td class="num" th:text="|${#numbers.formatInteger(c.totalSpent, 1, 'COMMA')}원|">0원</td>
+                    </tr>
+                    </tbody>
+                </table>
+                <div class="empty" th:if="${churnTop.isEmpty()}">분석 결과가 아직 없어요.</div>
+            </div>
+        </section>
+        <section class="card">
+            <div class="card-head"><h2>이렇게 분석해요</h2></div>
+            <div class="method">
+                <p><b>1. 특징값</b> · 고객마다 마지막 주문 뒤 경과일, 최근 90일 주문 수·결제 금액, 객단가, 가입 기간, 산 메뉴 종류의 다양성, 오전 주문 비율 7가지를 계산해요.</p>
+                <p><b>2. 고객 군집</b> · 특징값을 표준화해 PyTorch 오토인코더(7→16→3)로 압축하고, 그 3차원 임베딩을 K-평균(k=5)으로 묶어요. 묶음의 평균 특징으로 VIP · 단골 · 신규 · 가끔 방문 · 이탈 위험 이름을 붙여요.</p>
+                <p><b>3. 이탈 위험</b> · 21일 전 시점의 특징값으로 "그 뒤 21일 안에 다시 주문했는지"를 로지스틱 회귀로 학습하고, 오늘 특징값에 적용해 확률을 내요.</p>
+                <p class="muted small" style="margin-top:8px">파이썬·PyTorch 를 쓸 수 없으면 같은 모양의 규칙 기반 대체 계산으로 바뀌고, 엔진 칩에 표시돼요.</p>
+            </div>
+        </section>
+    </div>
+</main>
+</body>
+</html>

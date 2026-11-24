@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/shop}">
+<head><title>장바구니</title></head>
+<body>
+<main layout:fragment="content" class="shop-main" style="gap:24px">
+    <div class="page-header"><div><h1 class="page-title">장바구니</h1>
+        <p class="page-sub" th:text="${cart.empty} ? '담은 메뉴가 없어요.' : |메뉴 ${cart.count}개|">메뉴 3개</p></div></div>
+
+    <div class="card empty" th:if="${cart.empty}">
+        <p style="margin-bottom:16px">마음에 드는 메뉴를 담아 보세요.</p>
+        <a class="btn primary" th:href="@{/menu}">메뉴 보러 가기</a>
+    </div>
+
+    <div class="split" th:unless="${cart.empty}">
+        <section class="card" aria-label="담은 메뉴">
+            <div class="cart-line" th:each="l, st : ${cart.lines}">
+                <div class="tile sm" th:classappend="|tone-${l.tone}|"><th:block th:replace="~{fragments/ui :: icon(${l.icon})}"/></div>
+                <div>
+                    <a th:href="@{/menu/{id}(id=${l.productId})}"><b th:text="${l.productName}">아메리카노</b></a>
+                    <div class="muted small" th:text="${l.optionText.isEmpty()} ? '기본' : ${l.optionText}">ICE · 라지</div>
+                    <div class="small tnum">
+                        <span th:text="|${#numbers.formatInteger(l.unitPrice - l.unitDiscount, 1, 'COMMA')}원|">4,000원</span>
+                        <span class="strike" th:if="${l.unitDiscount > 0}" th:text="|${#numbers.formatInteger(l.unitPrice, 1, 'COMMA')}원|">4,500원</span>
+                    </div>
+                </div>
+                <form th:action="@{/cart/{i}/qty(i=${st.index})}" method="post" class="qty" data-qty>
+                    <button type="button" data-step="-1" aria-label="하나 빼기">−</button>
+                    <input type="number" name="quantity" th:value="${l.quantity}" min="1" max="20" aria-label="수량" data-auto-submit>
+                    <button type="button" data-step="1" aria-label="하나 더">+</button>
+                </form>
+                <b class="tnum nowrap" th:text="|${#numbers.formatInteger(l.lineAmount, 1, 'COMMA')}원|">8,000원</b>
+                <form th:action="@{/cart/{i}/delete(i=${st.index})}" method="post" class="inline">
+                    <button type="submit" class="btn sm ghost" th:attr="aria-label=|${l.productName} 빼기|">빼기</button>
+                </form>
+            </div>
+        </section>
+
+        <aside class="card" aria-label="결제 금액">
+            <div class="card-head"><h2>결제 금액</h2></div>
+            <div class="sum-row"><span>메뉴 금액</span><span class="tnum" th:text="|${#numbers.formatInteger(cart.totalAmount, 1, 'COMMA')}원|">0원</span></div>
+            <div class="sum-row"><span>할인</span><span class="tnum" th:text="|-${#numbers.formatInteger(cart.discountAmount, 1, 'COMMA')}원|">0원</span></div>
+            <div class="sum-row total"><span>결제할 금액</span><span class="v tnum" th:text="|${#numbers.formatInteger(cart.payAmount, 1, 'COMMA')}원|">0원</span></div>
+            <a class="btn primary lg block" style="margin-top:16px" th:href="@{/order}">주문하기</a>
+            <a class="btn block" style="margin-top:8px" th:href="@{/menu}">메뉴 더 담기</a>
+        </aside>
+    </div>
+</main>
+</body>
+</html>

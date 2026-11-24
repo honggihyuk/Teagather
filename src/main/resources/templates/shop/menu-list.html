@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/shop}">
+<head><title>메뉴</title></head>
+<body>
+<main layout:fragment="content" class="shop-main" style="gap:24px">
+    <div class="page-header"><div><h1 class="page-title">메뉴</h1><p class="page-sub">메뉴를 눌러 옵션을 고르고 담아 주세요.</p></div></div>
+    <nav class="tabs-line" aria-label="카테고리">
+        <a th:href="@{/menu}" th:classappend="${category == null} ? 'on'" th:attr="aria-current=${category == null} ? 'page'">전체</a>
+        <a th:each="cat : ${categories}" th:href="@{/menu(category=${cat.id})}" th:text="${cat.name}"
+           th:classappend="${category == cat.id} ? 'on'" th:attr="aria-current=${category == cat.id} ? 'page'">커피</a>
+    </nav>
+    <div class="menu-grid" th:if="${!products.isEmpty()}">
+        <th:block th:each="c : ${products}"><a th:replace="~{fragments/ui :: menuCard(${c})}"></a></th:block>
+    </div>
+    <div class="empty" th:if="${products.isEmpty()}">이 카테고리에는 아직 메뉴가 없어요.</div>
+</main>
+</body>
+</html>

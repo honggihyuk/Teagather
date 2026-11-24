@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/admin}">
+<head><title th:text="${productId == null} ? '상품 등록' : '상품 수정'">상품</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>관리자</span><span class="sep">›</span><a th:href="@{/admin/products}">상품</a><span class="sep">›</span>
+    <b th:text="${productId == null} ? '등록' : '수정'">등록</b></nav>
+<main layout:fragment="content" class="content">
+    <div class="page-header"><div><h1 class="page-title" th:text="${productId == null} ? '상품 등록' : '상품 수정'">상품 등록</h1>
+        <p class="page-sub">상태를 '신메뉴 후보'로 두면 고객에게는 보이지 않고, 메뉴 판매 분석이 출시 후보로 평가해요.</p></div></div>
+
+    <form th:action="${productId == null} ? @{/admin/products/new} : @{/admin/products/{id}/edit(id=${productId})}"
+          th:object="${productForm}" method="post" data-once class="stack" style="gap:16px">
+        <div class="banner red" th:if="${#fields.hasGlobalErrors()}" th:each="e : ${#fields.globalErrors()}" th:text="${e}">오류</div>
+        <section class="card">
+            <div class="card-head"><h2>기본 정보</h2></div>
+            <div class="form-grid">
+                <div class="field"><label for="name">메뉴 이름</label><input class="input" id="name" th:field="*{name}" maxlength="40" required>
+                    <span class="field-error" th:if="${#fields.hasErrors('name')}" th:errors="*{name}"></span></div>
+                <div class="field"><label for="categoryId">카테고리</label>
+                    <select class="select" id="categoryId" th:field="*{categoryId}" required>
+                        <option value="">고르기</option>
+                        <option th:each="c : ${categories}" th:value="${c.id}" th:text="${c.name}">커피</option>
+                    </select><span class="field-error" th:if="${#fields.hasErrors('categoryId')}" th:errors="*{categoryId}"></span></div>
+                <div class="field"><label for="price">판매가 (원)</label><input class="input" id="price" type="number" min="100" max="100000" step="10" th:field="*{price}" required>
+                    <span class="field-error" th:if="${#fields.hasErrors('price')}" th:errors="*{price}"></span></div>
+                <div class="field"><label for="cost">원가 (원)</label><input class="input" id="cost" type="number" min="0" step="10" th:field="*{cost}">
+                    <span class="hint">마진율 계산과 할인 추천에 써요.</span>
+                    <span class="field-error" th:if="${#fields.hasErrors('cost')}" th:errors="*{cost}"></span></div>
+                <div class="field full"><label for="description">설명</label><textarea class="textarea" id="description" th:field="*{description}" maxlength="300"></textarea></div>
+                <div class="field full"><label for="tags">태그 (쉼표로 구분)</label><input class="input" id="tags" th:field="*{tags}" placeholder="우유, 달콤, 시즌">
+                    <span class="hint">분석이 메뉴 취향을 배울 때 쓰는 속성이에요. 자주 쓰는 태그 : <th:block th:each="t, st : ${tagHints}" th:text="${t} + (${st.last} ? '' : ' · ')"></th:block></span></div>
+            </div>
+        </section>
+        <section class="card">
+            <div class="card-head"><h2>판매 · 표시</h2></div>
+            <div class="form-grid">
+                <div class="field"><label for="status">상태</label>
+                    <select class="select" id="status" th:field="*{status}">
+                        <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${s.label}">판매 중</option>
+                    </select></div>
+                <div class="field"><label for="sortOrder">정렬 순서</label><input class="input" id="sortOrder" type="number" th:field="*{sortOrder}"></div>
+                <label class="check"><input type="checkbox" th:field="*{todayMenu}"> 오늘의 메뉴로 보이기</label>
+                <label class="check"><input type="checkbox" th:field="*{newMenu}"> 신메뉴 표시 (출시 30일 동안)</label>
+            </div>
+        </section>
+        <section class="card">
+            <div class="card-head"><h2>옵션 그룹</h2><a class="more" th:href="@{/admin/options}">옵션 관리 ›</a></div>
+            <div class="check-grid">
+                <label class="check" th:each="g : ${optionGroups}">
+                    <input type="checkbox" name="optionGroupIds" th:value="${g.id}" th:checked="${productForm.optionGroupIds != null and productForm.optionGroupIds.contains(g.id)}">
+                    <span><b th:text="${g.name}">온도</b><div class="muted small" th:text="${g.ruleText}">필수</div></span>
+                </label>
+            </div>
+        </section>
+        <div class="row" style="justify-content:flex-end">
+            <a class="btn" th:href="@{/admin/products}">취소</a>
+            <button type="submit" class="btn primary" th:text="${productId == null} ? '등록하기' : '저장하기'">저장</button>
+        </div>
+    </form>
+</main>
+</body>
+</html>

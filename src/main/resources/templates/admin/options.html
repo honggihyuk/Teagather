@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/admin}">
+<head><title>옵션</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>관리자</span><span class="sep">›</span><span>메뉴</span><span class="sep">›</span><b>옵션</b></nav>
+<main layout:fragment="content" class="content">
+    <div class="page-header"><div><h1 class="page-title">옵션</h1><p class="page-sub">온도·사이즈처럼 여러 메뉴에 같이 쓰는 옵션 묶음이에요. 상품 수정 화면에서 메뉴에 연결해요.</p></div></div>
+
+    <section class="card">
+        <div class="card-head"><h2>옵션 그룹 추가</h2></div>
+        <form th:action="@{/admin/options}" method="post" class="inline-form">
+            <div class="field" style="flex:1"><label for="g-name">그룹 이름</label><input class="input" id="g-name" name="name" maxlength="20" required placeholder="예) 우유 변경"></div>
+            <label class="check"><input type="checkbox" name="required" value="true"> 필수</label>
+            <label class="check"><input type="checkbox" name="multiple" value="true"> 여러 개 선택</label>
+            <button type="submit" class="btn primary">추가</button>
+        </form>
+    </section>
+
+    <div class="grid grid-2">
+        <section class="card" th:each="g : ${groups}">
+            <div class="card-head">
+                <h2 th:text="${g.name}">온도</h2>
+                <span class="chip" th:classappend="${g.required} ? 'cream' : 'outline'" th:text="${g.ruleText}">필수</span>
+                <form th:action="@{/admin/options/{id}/delete(id=${g.id})}" method="post" class="inline" style="margin-left:auto">
+                    <button type="submit" class="btn sm ghost" th:attr="data-confirm=|${g.name} 옵션 그룹을 지울까요?|" data-confirm-body="이 그룹을 쓰던 메뉴에서도 빠져요. 지난 주문 기록은 그대로예요." data-confirm-ok="지우기" data-danger>그룹 지우기</button>
+                </form>
+            </div>
+            <div class="row wrap" style="margin-bottom:16px">
+                <span class="chip outline" th:each="it : ${g.items}" style="height:30px;padding-right:4px">
+                    <th:block th:text="${it.name}">ICE</th:block>
+                    <span class="muted" th:if="${it.extraPrice > 0}" th:text="|+${#numbers.formatInteger(it.extraPrice, 1, 'COMMA')}|">+500</span>
+                    <form th:action="@{/admin/options/items/{id}/delete(id=${it.id})}" method="post" class="inline">
+                        <button type="submit" class="btn sm ghost" style="height:22px;padding:0 6px" th:attr="aria-label=|${it.name} 지우기|">×</button></form>
+                </span>
+                <span class="muted" th:if="${g.items.isEmpty()}">옵션이 없어요.</span>
+            </div>
+            <form th:action="@{/admin/options/{id}/items(id=${g.id})}" method="post" class="inline-form">
+                <div class="field" style="flex:1"><label class="sr-only" th:for="|i-${g.id}|">옵션 이름</label><input class="input" th:id="|i-${g.id}|" name="name" maxlength="20" required placeholder="옵션 이름"></div>
+                <div class="field"><label class="sr-only" th:for="|p-${g.id}|">추가 금액</label><input class="input" th:id="|p-${g.id}|" name="extraPrice" type="number" min="0" max="5000" step="100" value="0" style="width:110px"></div>
+                <button type="submit" class="btn sm soft" style="height:40px">옵션 추가</button>
+            </form>
+        </section>
+    </div>
+</main>
+</body>
+</html>

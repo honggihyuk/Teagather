@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/shop}">
+<head><title>주문 내역</title></head>
+<body>
+<main layout:fragment="content" class="shop-main" style="gap:24px">
+    <div class="page-header"><div><h1 class="page-title">주문 내역</h1><p class="page-sub">최근 50건까지 보여요.</p></div></div>
+    <section class="card flush">
+        <div class="table-box">
+            <table class="t">
+                <thead><tr><th>주문</th><th>주문 시각</th><th>받는 방법</th><th class="num">금액</th><th>상태</th></tr></thead>
+                <tbody>
+                <tr th:each="o : ${orders}">
+                    <td class="cell-title"><a th:href="@{/orders/{id}(id=${o.id})}"><b th:text="${o.summary}">아메리카노 외 1건</b></a>
+                        <div class="muted small" th:text="${o.orderNo}">251124-0001</div></td>
+                    <td class="tnum" th:text="${#temporals.format(o.orderedAt, 'yyyy.M.d HH:mm')}">2026.11.24 09:12</td>
+                    <td th:text="${o.pickupType.label}">포장</td>
+                    <td class="num" th:text="|${#numbers.formatInteger(o.payAmount, 1, 'COMMA')}원|">9,300원</td>
+                    <td><span th:replace="~{fragments/ui :: chip(${o.status.chip}, ${o.status.label})}"></span></td>
+                </tr>
+                </tbody>
+            </table>
+            <div class="empty" th:if="${orders.isEmpty()}">아직 주문이 없어요. <a class="brown" th:href="@{/menu}">메뉴 보러 가기</a></div>
+        </div>
+    </section>
+</main>
+</body>
+</html>

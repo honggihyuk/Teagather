@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/admin}">
+<head><title>대시보드</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>관리자</span><span class="sep">›</span><b>대시보드</b></nav>
+<main layout:fragment="content" class="content">
+    <div class="page-header">
+        <div><div class="eyebrow" th:text="${#temporals.format(#temporals.createNow(), 'yyyy년 M월 d일 (E)')}">날짜</div>
+            <h1 class="page-title">대시보드</h1><p class="page-sub">오늘 매장 상황과 AI 추천을 한눈에 봐요.</p></div>
+        <div class="actions"><a class="btn primary" th:href="@{/admin/orders}">주문 처리</a></div>
+    </div>
+
+    <div class="grid grid-4">
+        <section class="card hero">
+            <div class="kpi"><div class="label">오늘 매출</div></div>
+            <div class="hero-num"><th:block th:text="${#numbers.formatInteger(dash.todayRevenue, 1, 'COMMA')}">0</th:block><small>원</small></div>
+            <div class="muted">
+                <span th:text="|주문 ${dash.todayOrders}건|">주문 0건</span>
+                <th:block th:if="${dash.changePct != null}"> · 어제 이 시간보다
+                    <b th:classappend="${dash.changePct < 0} ? 'red' : 'brown'" th:text="|${dash.changePct >= 0 ? '+' : ''}${dash.changePct}%|">+0%</b></th:block>
+            </div>
+        </section>
+        <a class="card kpi" th:href="@{/admin/orders}">
+            <div class="label">처리할 주문</div>
+            <div class="value tnum"><th:block th:text="${dash.openOrders}">0</th:block><small>건</small></div>
+            <div class="foot">접수 · 준비 중 · 픽업 대기</div>
+        </a>
+        <a class="card kpi" th:href="@{/admin/customers(sort='joined')}">
+            <div class="label">이번 달 새 고객</div>
+            <div class="value tnum"><th:block th:text="${dash.newCustomers}">0</th:block><small>명</small></div>
+            <div class="foot" th:text="|전체 고객 ${dash.customers}명|">전체</div>
+        </a>
+    </div>
+
+    <div class="grid grid-2">
+        <section class="card">
+            <div class="card-head"><h2>최근 7일 매출</h2><a class="more" th:href="@{/admin/sales}">매출 리포트 ›</a></div>
+            <div class="week-chart">
+                <div class="col" th:each="b : ${dash.week}">
+                    <span class="v" th:text="${b.value >= 10000} ? |${#numbers.formatDecimal(b.value / 10000.0, 1, 1)}만| : ${b.value}">0</span>
+                    <div class="bar" th:classappend="${b.highlight} ? 'on'" th:style="|height:${b.pct}%|"></div>
+                    <span class="l" th:text="${b.label}">월</span>
+                </div>
+            </div>
+        </section>
+        <section class="card">
+            <div class="card-head"><h2>많이 팔린 메뉴</h2><span class="sub">최근 7일</span></div>
+            <div class="hbars">
+                <div class="hbar" th:each="b, st : ${dash.topMenus}">
+                    <span class="name" th:text="|${st.count}. ${b.label}|">1. 아메리카노</span>
+                    <div class="progress" th:classappend="${st.first} ? 'brown'"><i th:style="|width:${b.pct}%|"></i></div>
+                    <span class="v" th:text="|${b.value}개|">0개</span>
+                </div>
+            </div>
+            <div class="empty" th:if="${dash.topMenus.isEmpty()}">아직 판매 기록이 없어요.</div>
+        </section>
+    </div>
+
+    <div class="split">
+        <section class="card flush">
+            <div class="card-head"><h2>처리할 주문</h2><a class="more" th:href="@{/admin/orders}">전체 ›</a></div>
+            <div class="table-box">
+                <table class="t">
+                    <thead><tr><th>주문</th><th>고객</th><th>시각</th><th>상태</th><th></th></tr></thead>
+                    <tbody>
+                    <tr th:each="o : ${dash.recentOpen}">
+                        <td class="cell-title"><b th:text="${o.summary}">아메리카노</b><div class="muted small" th:text="${o.orderNo}">번호</div></td>
+                        <td th:text="${o.member?.displayName}">고객</td>
+                        <td class="tnum" th:text="${#temporals.format(o.orderedAt, 'HH:mm')}">09:00</td>
+                        <td><span th:replace="~{fragments/ui :: chip(${o.status.chip}, ${o.status.label})}"></span></td>
+                        <td data-label="">
+                            <form th:action="@{/admin/orders/{id}/advance(id=${o.id})}" method="post" class="inline">
+                                <button type="submit" class="btn sm soft" th:text="|→ ${o.status.next().label}|">다음</button></form>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+                <div class="empty" th:if="${dash.recentOpen.isEmpty()}">처리할 주문이 없어요.</div>
+            </div>
+        </section>
+
+        <section class="card soft">
+            <div class="card-head"><h2>AI 추천</h2><a class="more" th:href="@{/admin/analysis/menus}">메뉴 분석 ›</a></div>
+            <th:block th:if="${dash.run != null}">
+                <p class="muted small" style="margin-bottom:12px" th:text="|${#temporals.format(dash.run.finishedAt, 'M.d HH:mm')} 분석 · ${dash.run.engine}|">분석</p>
+                <div class="pick" th:each="i : ${dash.topPicks}">
+                    <span class="rank first" th:text="${i.kind.name() == 'DISCOUNT'} ? '%' : (${i.kind.name() == 'TODAY'} ? '★' : 'N')">1</span>
+                    <div><div class="muted small" th:text="${i.kind.label}">할인 추천</div>
+                        <b th:text="${i.product.name}">메뉴</b>
+                        <div class="reason" th:text="${i.reason}">이유</div></div>
+                </div>
+            </th:block>
+            <div th:if="${dash.run == null}" class="muted">아직 분석 결과가 없어요. <a class="brown" th:href="@{/admin/analysis/menus}">분석하러 가기</a></div>
+        </section>
+    </div>
+</main>
+</body>
+</html>

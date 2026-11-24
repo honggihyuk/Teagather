@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<body>
+<!-- 분석 머리 카드 : 최근 분석 · 엔진 · 손실 · 다시 분석 -->
+<section th:fragment="runCard(run, latest, running, back)" class="card soft">
+    <div class="row wrap" style="gap:16px;align-items:flex-start">
+        <div style="flex:1;min-width:260px">
+            <div class="row wrap" style="margin-bottom:6px">
+                <b th:if="${run != null}" th:text="|최근 분석 ${#temporals.format(run.finishedAt, 'M월 d일 HH:mm')}|">최근 분석</b>
+                <b th:if="${run == null}">아직 분석 결과가 없어요</b>
+                <span class="chip" th:if="${run != null}" th:classappend="${run.torch} ? 'solid' : 'grey'" th:text="${run.engine}">PyTorch</span>
+                <span class="chip cream" th:if="${running}">분석하는 중…</span>
+                <span class="chip red" th:if="${!running and latest != null and latest.status.name() == 'FAILED'}">마지막 분석 실패</span>
+            </div>
+            <div class="muted small" th:if="${run != null}"
+                 th:text="|고객 ${run.customerCount}명 · 주문 ${run.orderCount}건 · ${run.elapsedText} · ${run.triggerLabel}|">요약</div>
+            <div class="muted small" th:if="${run != null and run.lossText != null}" th:text="${run.lossText}">손실</div>
+            <div class="small red" th:if="${run != null and run.message != null}" th:text="${run.message}">메시지</div>
+            <div class="small red" th:if="${!running and latest != null and latest.status.name() == 'FAILED'}" th:text="${latest.message}">실패</div>
+        </div>
+        <form th:action="@{/admin/analysis/run}" method="post" class="inline" data-once>
+            <input type="hidden" name="back" th:value="${back}">
+            <button type="submit" class="btn primary" th:disabled="${running}"><th:block th:replace="~{fragments/ui :: icon('refresh')}"/>지금 분석하기</button>
+        </form>
+    </div>
+    <span th:if="${running}" data-refresh="5" hidden></span>
+</section>
+</body>
+</html>

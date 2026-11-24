@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/admin}">
+<head><title>메뉴 판매 분석</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>관리자</span><span class="sep">›</span><span>메뉴</span><span class="sep">›</span><b>메뉴 판매 분석</b></nav>
+<main layout:fragment="content" class="content">
+    <div class="page-header">
+        <div><h1 class="page-title">메뉴 판매 분석</h1>
+            <p class="page-sub">판매 추세·수요 예측·고객 취향을 보고 할인 메뉴, 오늘의 메뉴, 신메뉴 후보를 골라요. 적용하면 고객 사이트에 바로 보여요.</p></div>
+        <div class="actions">
+            <form th:action="@{/admin/analysis/today/clear}" method="post" class="inline">
+                <button type="submit" class="btn" data-confirm="오늘의 메뉴를 모두 내릴까요?" data-confirm-body="고객 첫 화면의 '오늘의 메뉴'가 비어요." data-confirm-ok="모두 내리기">오늘의 메뉴 비우기</button>
+            </form>
+        </div>
+    </div>
+
+    <section th:replace="~{admin/fragments :: runCard(${run}, ${latest}, ${running}, 'menus')}"></section>
+
+    <div class="grid grid-3" th:if="${picks != null}">
+        <section class="card" th:each="entry : ${picks}" th:with="kind=${entry.key}">
+            <div class="card-head" style="margin-bottom:6px"><h2 th:text="${kind.label}">할인 추천</h2></div>
+            <p class="muted small" style="margin-bottom:16px" th:text="${kind.description}">설명</p>
+            <div class="pick" th:each="i : ${entry.value}">
+                <span class="rank" th:classappend="${i.rank == 1} ? 'first'" th:text="${i.rank}">1</span>
+                <div>
+                    <div class="row wrap">
+                        <b th:text="${i.product.name}">메뉴</b>
+                        <span class="chip outline" th:text="${i.product.category.name}">커피</span>
+                        <span class="chip red" th:if="${i.suggestedRate != null}" th:text="|-${i.suggestedRate}%|">-15%</span>
+                        <span class="chip solid" th:if="${i.applied}">적용됨</span>
+                    </div>
+                    <div class="reason" th:text="${i.reason}">이유</div>
+                    <div class="row">
+                        <div class="progress" th:classappend="${i.rank == 1} ? 'brown'" style="flex:1"><i th:style="|width:${i.scorePercent}%|"></i></div>
+                        <span class="small muted tnum" th:text="|점수 ${i.scorePercent}|">점수</span>
+                    </div>
+                    <form th:unless="${i.applied}" th:action="@{/admin/analysis/insights/{id}/apply(id=${i.id})}" method="post" style="margin-top:10px">
+                        <button type="submit" class="btn sm" th:classappend="${i.rank == 1} ? 'primary' : 'soft'"
+                                th:attr="data-confirm=${kind.name() == 'NEW'} ? |${i.product.name} 을(를) 출시할까요?| : null,
+                                         data-confirm-body=${kind.name() == 'NEW'} ? '판매 중으로 바뀌고 고객 사이트 신메뉴에 보여요.' : null,
+                                         data-confirm-ok=${kind.name() == 'NEW'} ? '출시하기' : null"
+                                th:text="${kind.name() == 'DISCOUNT'} ? |오늘 ${i.suggestedRate}% 할인 걸기| : ${kind.action}">적용</button>
+                    </form>
+                </div>
+            </div>
+            <div class="muted" th:if="${entry.value.isEmpty()}" th:text="${kind.name() == 'NEW'} ? '신메뉴 후보 상품이 없어요. 상품에서 상태를 신메뉴 후보로 등록해 보세요.' : '조건에 맞는 메뉴가 없어요.'">없음</div>
+        </section>
+    </div>
+
+    <section class="card flush" th:if="${metrics != null}">
+        <div class="card-head"><h2>전체 메뉴 지표</h2><span class="sub">30일 판매 순</span></div>
+        <div class="table-box">
+            <table class="t">
+                <thead><tr><th>메뉴</th><th>카테고리</th><th class="num">30일 판매</th><th class="num">30일 매출</th><th class="num">2주 추세</th><th class="num">오늘 예상</th><th class="num">마진율</th><th>고객 선호도</th></tr></thead>
+                <tbody>
+                <tr th:each="m : ${metrics}">
+                    <td class="cell-title"><b th:text="${m.product.name}">메뉴</b>
+                        <span class="chip solid" th:if="${m.product.todayMenu}" style="margin-left:4px">오늘</span></td>
+                    <td th:text="${m.product.category.name}">커피</td>
+                    <td class="num" th:text="|${m.qty30}개|">0</td>
+                    <td class="num" th:text="|${#numbers.formatInteger(m.revenue30, 1, 'COMMA')}원|">0</td>
+                    <td class="num" th:classappend="${m.trendPct < 0} ? 'red'" th:text="|${m.trendPct >= 0 ? '+' : ''}${#numbers.formatDecimal(m.trendPct, 1, 0)}%|">0%</td>
+                    <td class="num" th:text="|${#numbers.formatDecimal(m.forecast, 1, 1)}개|">0</td>
+                    <td class="num" th:text="|${#numbers.formatDecimal(m.marginRate * 100, 1, 0)}%|">0%</td>
+                    <td style="min-width:120px"><div class="progress"><i th:style="|width:${m.affinityPercent}%|"></i></div></td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <div class="split">
+        <section class="card flush">
+            <div class="card-head"><h2>분석 기록</h2><span class="sub">최근 10번</span></div>
+            <div class="table-box">
+                <table class="t">
+                    <thead><tr><th>시작</th><th>엔진</th><th>상태</th><th>누가</th><th>메시지</th></tr></thead>
+                    <tbody>
+                    <tr th:each="h : ${history}">
+                        <td class="tnum nowrap" th:text="${#temporals.format(h.startedAt, 'M.d HH:mm:ss')}">시각</td>
+                        <td th:text="${h.engine ?: '-'}">엔진</td>
+                        <td><span th:replace="~{fragments/ui :: chip(${h.status.chip}, ${h.status.label})}"></span></td>
+                        <td th:text="${h.triggeredBy}">admin</td>
+                        <td class="small muted" th:text="${h.message ?: h.lossText}">메시지</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+        <section class="card">
+            <div class="card-head"><h2>이렇게 골라요</h2></div>
+            <div class="method">
+                <p><b>수요 예측</b> · 요일, 전날·7일 전 판매, 7일·28일 평균, 할인 여부, 카테고리로 오늘 판매 수를 맞히는 PyTorch MLP 를 메뉴 전체에 함께 학습해요 (마지막 7일로 오차 확인).</p>
+                <p><b>오늘의 메뉴</b> · 예상 판매 60% + 2주 추세 20% + 마진 20%.</p>
+                <p><b>할인 추천</b> · 마진 55% 이상이면서 판매가 줄었거나 같은 카테고리 평균보다 덜 팔릴 메뉴. 마진에 따라 10·15·20% 를 제안하고, 지난 할인 때 늘어난 판매도 알려 줘요.</p>
+                <p><b>신메뉴 후보</b> · 고객×메뉴 구매 행렬을 행렬 분해로 학습할 때 메뉴 속성(카테고리·태그·가격)으로도 메뉴 벡터를 만들게 해서, 아직 안 판 후보 메뉴의 고객 선호도를 예측해요.</p>
+            </div>
+        </section>
+    </div>
+</main>
+</body>
+</html>

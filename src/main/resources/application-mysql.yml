@@ -1,0 +1,10 @@
+####################################
+# MySQL 프로필 (데이터베이스 teagather 가 없으면 자동으로 만든다)
+#   ./gradlew bootRun --args='--spring.profiles.active=mysql'
+####################################
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/teagather?createDatabaseIfNotExist=true&serverTimezone=Asia/Seoul&useUnicode=true&characterEncoding=utf8&allowPublicKeyRetrieval=true&useSSL=false&rewriteBatchedStatements=true
+    username: root
+    password: "rootroot"

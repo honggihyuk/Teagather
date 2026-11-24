@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>안내 · Teagather</title>
+    <link rel="icon" type="image/png" th:href="@{/images/logo-badge-brown-trim.png}">
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<!-- 오류 안내 (GlobalExceptionHandler) -->
+<body class="ui">
+<main class="auth-page">
+    <div class="auth-card" style="text-align:center">
+        <div class="logo"><img th:src="@{/images/logo.png}" alt="Teagather"></div>
+        <h1>잠깐만요</h1>
+        <p class="muted" th:text="${message}">안내 문구</p>
+        <div class="row" style="justify-content:center">
+            <button type="button" class="btn" onclick="history.back()">뒤로</button>
+            <a class="btn primary" th:href="${adminArea} ? @{/admin} : @{/}">처음으로</a>
+        </div>
+    </div>
+</main>
+</body>
+</html>

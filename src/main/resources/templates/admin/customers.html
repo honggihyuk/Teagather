@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/admin}">
+<head><title>고객 정보</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>관리자</span><span class="sep">›</span><span>고객</span><span class="sep">›</span><b>고객 정보</b></nav>
+<main layout:fragment="content" class="content">
+    <div class="page-header">
+        <div><h1 class="page-title">고객 정보</h1><p class="page-sub" th:text="|전체 ${customers.totalElements}명|">전체</p></div>
+        <div class="actions"><a class="btn soft" th:href="@{/admin/analysis/customers}">고객 분석 보기</a></div>
+    </div>
+
+    <form class="inline-form" th:action="@{/admin/customers}" method="get">
+        <div class="field" style="flex:1;min-width:220px"><label for="q" class="sr-only">검색</label>
+            <input class="input" id="q" name="q" th:value="${q}" placeholder="이름 · 아이디 · 연락처"></div>
+        <div class="field"><label for="sort" class="sr-only">정렬</label>
+            <select class="select" id="sort" name="sort">
+                <option value="spent" th:selected="${sort == 'spent'}">누적 금액 순</option>
+                <option value="recent" th:selected="${sort == 'recent'}">최근 주문 순</option>
+                <option value="risk" th:selected="${sort == 'risk'}">이탈 위험 순</option>
+                <option value="joined" th:selected="${sort == 'joined'}">가입 순</option>
+            </select></div>
+        <input type="hidden" name="segment" th:value="${segment}" th:if="${segment}">
+        <button class="btn" type="submit">검색</button>
+    </form>
+
+    <nav class="segmented" aria-label="고객군" th:if="${!segments.isEmpty()}">
+        <a th:href="@{/admin/customers(q=${q},sort=${sort})}" th:classappend="${segment == null} ? 'on'">전체</a>
+        <a th:each="s : ${segments}" th:href="@{/admin/customers(segment=${s.code},q=${q},sort=${sort})}" th:classappend="${segment == s.code} ? 'on'">
+            <span th:text="${s.label}">VIP</span><span class="n" th:text="${s.customerCount}">0</span></a>
+    </nav>
+
+    <section class="card flush">
+        <div class="table-box">
+            <table class="t">
+                <thead><tr><th>고객</th><th>연락처</th><th>등급</th><th>고객군</th><th class="num">이탈 위험</th><th class="num">주문</th><th class="num">누적 금액</th><th>마지막 주문</th><th>가입</th></tr></thead>
+                <tbody>
+                <tr th:each="c : ${customers}" th:classappend="${!c.active} ? 'dim'">
+                    <td class="cell-title"><a class="row" th:href="@{/admin/customers/{id}(id=${c.id})}">
+                        <span class="avatar" th:text="${c.initials}">민준</span>
+                        <span><b th:text="${c.displayName}">김민준</b><span class="chip red" th:if="${!c.active}" style="margin-left:6px">정지</span>
+                            <div class="muted small" th:text="${c.username}">customer1</div></span></a></td>
+                    <td class="tnum" th:text="${c.phone ?: '-'}">010</td>
+                    <td><span class="chip" th:classappend="${c.grade.name() == 'VIP'} ? 'solid' : 'outline'" th:text="${c.grade.label}">일반</span></td>
+                    <td><span class="chip" th:if="${c.segmentLabel}" th:classappend="${c.segmentCode == 'AT_RISK'} ? 'red' : (${c.segmentCode == 'VIP'} ? 'solid' : 'cream')" th:text="${c.segmentLabel}">단골</span>
+                        <span class="faint" th:unless="${c.segmentLabel}">-</span></td>
+                    <td class="num" th:classappend="${c.churnPercent != null and c.churnPercent >= 60} ? 'red'" th:text="${c.churnPercent != null} ? |${c.churnPercent}%| : '-'">0%</td>
+                    <td class="num" th:text="${c.orderCount}">0</td>
+                    <td class="num" th:text="|${#numbers.formatInteger(c.totalSpent, 1, 'COMMA')}원|">0원</td>
+                    <td class="tnum" th:text="${c.lastOrderAt != null} ? ${#temporals.format(c.lastOrderAt, 'yyyy.M.d')} : '-'">-</td>
+                    <td class="tnum" th:text="${#temporals.format(c.created, 'yyyy.M.d')}">가입</td>
+                </tr>
+                </tbody>
+            </table>
+            <div class="empty" th:if="${customers.empty}">조건에 맞는 고객이 없어요.</div>
+        </div>
+    </section>
+    <nav class="row" style="justify-content:center" th:if="${customers.totalPages > 1}" aria-label="페이지">
+        <a class="btn sm" th:if="${customers.hasPrevious()}" th:href="@{/admin/customers(q=${q},segment=${segment},sort=${sort},page=${customers.number - 1})}">‹ 이전</a>
+        <span class="muted tnum" th:text="|${customers.number + 1} / ${customers.totalPages}|">1 / 8</span>
+        <a class="btn sm" th:if="${customers.hasNext()}" th:href="@{/admin/customers(q=${q},segment=${segment},sort=${sort},page=${customers.number + 1})}">다음 ›</a>
+    </nav>
+</main>
+</body>
+</html>

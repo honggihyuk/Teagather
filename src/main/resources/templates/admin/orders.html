@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/admin}">
+<head><title>주문</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>관리자</span><span class="sep">›</span><b>주문</b></nav>
+<main layout:fragment="content" class="content">
+    <div class="page-header">
+        <div><h1 class="page-title">주문</h1><p class="page-sub">들어온 주문을 다음 단계로 넘겨요. 최근 100건까지 보여요.</p></div>
+    </div>
+    <nav class="segmented" aria-label="상태">
+        <a th:href="@{/admin/orders}" th:classappend="${status == null} ? 'on'">전체</a>
+        <a th:each="s : ${statuses}" th:href="@{/admin/orders(status=${s.name()})}" th:classappend="${status == s} ? 'on'">
+            <span th:text="${s.label}">접수</span><span class="n" th:text="${counts.get(s)}">0</span></a>
+    </nav>
+    <section class="card flush">
+        <div class="table-box">
+            <table class="t">
+                <thead><tr><th>주문</th><th>시각</th><th>고객</th><th>받는 방법</th><th class="num">금액</th><th>상태</th><th></th></tr></thead>
+                <tbody>
+                <tr th:each="o : ${orders}" th:classappend="${o.status.name() == 'CANCELED'} ? 'dim'">
+                    <td class="cell-title"><b th:text="${o.summary}">아메리카노 외 1건</b>
+                        <div class="muted small"><span th:text="${o.orderNo}">번호</span><th:block th:if="${o.request}"> · <span th:text="${o.request}">요청</span></th:block></div></td>
+                    <td class="tnum nowrap" th:text="${#temporals.format(o.orderedAt, 'M.d HH:mm')}">11.24 09:00</td>
+                    <td><a th:if="${o.member != null}" th:href="@{/admin/customers/{id}(id=${o.member.id})}" th:text="${o.member.displayName}">고객</a></td>
+                    <td th:text="${o.pickupType.label}">포장</td>
+                    <td class="num" th:text="|${#numbers.formatInteger(o.payAmount, 1, 'COMMA')}원|">0원</td>
+                    <td><span th:replace="~{fragments/ui :: chip(${o.status.chip}, ${o.status.label})}"></span></td>
+                    <td data-label="" class="nowrap">
+                        <form th:if="${o.status.next() != null}" th:action="@{/admin/orders/{id}/advance(id=${o.id})}" method="post" class="inline">
+                            <input type="hidden" name="status" th:value="${status?.name()}">
+                            <button type="submit" class="btn sm soft" th:text="|→ ${o.status.next().label}|">다음</button></form>
+                        <form th:if="${o.status.open}" th:action="@{/admin/orders/{id}/cancel(id=${o.id})}" method="post" class="inline">
+                            <input type="hidden" name="status" th:value="${status?.name()}">
+                            <button type="submit" class="btn sm ghost" data-confirm="이 주문을 취소할까요?" data-confirm-body="고객 누적 금액과 포인트도 되돌려요." data-confirm-ok="주문 취소" data-danger>취소</button></form>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+            <div class="empty" th:if="${orders.isEmpty()}">이 상태의 주문이 없어요.</div>
+        </div>
+    </section>
+</main>
+</body>
+</html>

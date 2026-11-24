@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ko"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#ffffff">
+    <title layout:title-pattern="$CONTENT_TITLE · Teagather 관리자">Teagather 관리자</title>
+    <link rel="icon" type="image/png" th:href="@{/images/logo-badge-brown-trim.png}">
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+    <th:block layout:fragment="head"></th:block>
+</head>
+<!-- 관리자 레이아웃 (InhaWorks design.md 3장) : 사이드바 + 반투명 상단바(브레드크럼) + 본문 -->
+<body class="ui" th:with="u=${currentUri ?: ''}">
+<div class="app">
+    <aside class="sidebar" aria-label="관리자 메뉴">
+        <a class="brand" th:href="@{/admin}"><img th:src="@{/images/logo-wordmark.png}" alt="Teagather"><small>관리자</small></a>
+        <nav>
+            <div class="nav-group">
+                <div class="nav-label">매장</div>
+                <a class="nav-item" th:href="@{/admin}" th:classappend="${u == '/admin' or u == '/admin/'} ? 'active'"
+                   th:attr="aria-current=${u == '/admin' or u == '/admin/'} ? 'page'">
+                    <th:block th:replace="~{fragments/ui :: icon('grid')}"/>대시보드</a>
+                <a class="nav-item" th:href="@{/admin/orders}" th:classappend="${#strings.startsWith(u, '/admin/orders')} ? 'active'">
+                    <th:block th:replace="~{fragments/ui :: icon('receipt')}"/>주문
+                    <span class="badge" th:if="${navOpenOrders != null and navOpenOrders > 0}" th:text="${navOpenOrders}" title="처리할 주문">3</span></a>
+                <a class="nav-item" th:href="@{/admin/sales}" th:classappend="${#strings.startsWith(u, '/admin/sales')} ? 'active'">
+                    <th:block th:replace="~{fragments/ui :: icon('bar')}"/>매출 리포트</a>
+            </div>
+            <div class="nav-group">
+                <div class="nav-label">고객</div>
+                <a class="nav-item" th:href="@{/admin/customers}" th:classappend="${#strings.startsWith(u, '/admin/customers')} ? 'active'">
+                    <th:block th:replace="~{fragments/ui :: icon('users')}"/>고객 정보</a>
+                <a class="nav-item" th:href="@{/admin/analysis/customers}" th:classappend="${#strings.startsWith(u, '/admin/analysis/customers')} ? 'active'">
+                    <th:block th:replace="~{fragments/ui :: icon('pie')}"/>고객 분석</a>
+            </div>
+            <div class="nav-group">
+                <div class="nav-label">메뉴</div>
+                <a class="nav-item" th:href="@{/admin/analysis/menus}" th:classappend="${#strings.startsWith(u, '/admin/analysis/menus')} ? 'active'">
+                    <th:block th:replace="~{fragments/ui :: icon('sparkle')}"/>메뉴 판매 분석</a>
+                <a class="nav-item" th:href="@{/admin/products}" th:classappend="${#strings.startsWith(u, '/admin/products')} ? 'active'">
+                    <th:block th:replace="~{fragments/ui :: icon('box')}"/>상품</a>
+                <a class="nav-item" th:href="@{/admin/categories}" th:classappend="${#strings.startsWith(u, '/admin/categories')} ? 'active'">
+                    <th:block th:replace="~{fragments/ui :: icon('layers')}"/>카테고리</a>
+                <a class="nav-item" th:href="@{/admin/options}" th:classappend="${#strings.startsWith(u, '/admin/options')} ? 'active'">
+                    <th:block th:replace="~{fragments/ui :: icon('sliders')}"/>옵션</a>
+                <a class="nav-item" th:href="@{/admin/discounts}" th:classappend="${#strings.startsWith(u, '/admin/discounts')} ? 'active'">
+                    <th:block th:replace="~{fragments/ui :: icon('percent')}"/>할인</a>
+            </div>
+        </nav>
+
+        <div class="sidebar-foot">
+            <!-- 분석 상태 카드 -->
+            <a class="status-card" th:href="@{/admin/analysis/menus}">
+                <div><span class="status-dot" th:classappend="${navAnalysisRunning} ? 'busy' : (${navAnalysisEngine == null} ? 'bad')"></span>
+                    <b th:text="${navAnalysisRunning} ? '분석하는 중' : (${navAnalysisEngine == null} ? '분석 결과 없음' : '분석 준비됨')">분석 준비됨</b></div>
+                <div th:if="${navAnalysisEngine != null}">엔진 <b th:text="${navAnalysisEngine}">PyTorch</b></div>
+                <div th:if="${navAnalysisAt != null}">최근 <b class="tnum" th:text="${#temporals.format(navAnalysisAt, 'M.d HH:mm')}">11.24 09:00</b></div>
+            </a>
+            <div class="user-row" th:if="${loginMember != null}">
+                <span class="avatar" th:text="${loginMember.initials}">관리</span>
+                <span class="who"><b th:text="${loginMember.displayName}">관리자</b><small>관리자</small></span>
+                <a class="icon-btn" th:href="@{/}" title="고객 사이트" aria-label="고객 사이트"><th:block th:replace="~{fragments/ui :: icon('store')}"/></a>
+                <form th:action="@{/admin/logout}" method="post" class="inline">
+                    <button type="submit" class="icon-btn" title="로그아웃" aria-label="로그아웃"><th:block th:replace="~{fragments/ui :: icon('logout')}"/></button>
+                </form>
+            </div>
+        </div>
+    </aside>
+
+    <div class="main">
+        <header class="topbar">
+            <nav class="crumbs" aria-label="현재 위치" layout:fragment="crumbs"><span>관리자</span></nav>
+            <div class="topbar-right">
+                <a class="btn sm ghost" th:href="@{/}" target="_blank" rel="noopener">고객 사이트 열기</a>
+            </div>
+        </header>
+        <main class="content" layout:fragment="content"></main>
+    </div>
+</div>
+
+<template data-toast th:if="${adminMessage}" th:text="${adminMessage}"></template>
+<template data-toast="error" th:if="${errorMessage}" th:text="${errorMessage}"></template>
+<script th:src="@{/js/app.js}"></script>
+</body>
+</html>

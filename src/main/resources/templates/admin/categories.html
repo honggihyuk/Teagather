@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/admin}">
+<head><title>카테고리</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>관리자</span><span class="sep">›</span><span>메뉴</span><span class="sep">›</span><b>카테고리</b></nav>
+<main layout:fragment="content" class="content">
+    <div class="page-header"><div><h1 class="page-title">카테고리</h1><p class="page-sub">고객 메뉴 화면의 탭 순서와 메뉴 이미지 색을 정해요.</p></div></div>
+
+    <section class="card">
+        <div class="card-head"><h2>카테고리 추가</h2></div>
+        <form th:action="@{/admin/categories}" method="post" class="inline-form">
+            <div class="field" style="flex:1"><label for="new-name">이름</label><input class="input" id="new-name" name="name" maxlength="20" required></div>
+            <div class="field"><label for="new-sort">순서</label><input class="input" id="new-sort" name="sortOrder" type="number" value="10" style="width:90px"></div>
+            <div class="field"><label for="new-tone">색</label><select class="select" id="new-tone" name="tone"><option th:each="t : ${tones}" th:value="${t}" th:text="${t}">brown</option></select></div>
+            <div class="field"><label for="new-icon">아이콘</label><select class="select" id="new-icon" name="icon"><option th:each="i : ${icons}" th:value="${i}" th:text="${i}">cup</option></select></div>
+            <button type="submit" class="btn primary">추가</button>
+        </form>
+    </section>
+
+    <section class="card flush">
+        <div class="table-box">
+            <table class="t">
+                <thead><tr><th>카테고리</th><th>순서</th><th>색 · 아이콘</th><th class="num">메뉴</th><th></th></tr></thead>
+                <tbody>
+                <tr th:each="e : ${categories}" th:with="c=${e.key}">
+                    <td class="cell-title" colspan="3">
+                        <form th:action="@{/admin/categories/{id}(id=${c.id})}" method="post" class="inline-form" th:id="|cat-${c.id}|">
+                            <div class="tile sm" th:classappend="|tone-${c.toneOrDefault}|"><th:block th:replace="~{fragments/ui :: icon(${c.iconOrDefault})}"/></div>
+                            <div class="field"><label class="sr-only" th:for="|n-${c.id}|">이름</label><input class="input" th:id="|n-${c.id}|" name="name" th:value="${c.name}" maxlength="20" required></div>
+                            <div class="field"><label class="sr-only" th:for="|s-${c.id}|">순서</label><input class="input" th:id="|s-${c.id}|" name="sortOrder" type="number" th:value="${c.sortOrder}" style="width:80px"></div>
+                            <div class="field"><label class="sr-only" th:for="|t-${c.id}|">색</label><select class="select" th:id="|t-${c.id}|" name="tone"><option th:each="t : ${tones}" th:value="${t}" th:text="${t}" th:selected="${t == c.toneOrDefault}">brown</option></select></div>
+                            <div class="field"><label class="sr-only" th:for="|i-${c.id}|">아이콘</label><select class="select" th:id="|i-${c.id}|" name="icon"><option th:each="i : ${icons}" th:value="${i}" th:text="${i}" th:selected="${i == c.iconOrDefault}">cup</option></select></div>
+                            <button type="submit" class="btn sm">저장</button>
+                        </form>
+                    </td>
+                    <td class="num" th:text="|${e.value}개|">0개</td>
+                    <td data-label="">
+                        <form th:action="@{/admin/categories/{id}/delete(id=${c.id})}" method="post" class="inline">
+                            <button type="submit" class="btn sm ghost" th:disabled="${e.value > 0}" th:title="${e.value > 0} ? '메뉴가 있어 지울 수 없어요' : null"
+                                    th:attr="data-confirm=|${c.name} 카테고리를 지울까요?|" data-confirm-ok="지우기" data-danger>지우기</button></form>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
+</body>
+</html>

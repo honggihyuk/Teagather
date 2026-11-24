@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/shop}">
+<head><title>주문서</title></head>
+<body>
+<main layout:fragment="content" class="shop-main" style="gap:24px">
+    <div class="page-header"><div><h1 class="page-title">주문서</h1><p class="page-sub">받는 방법을 고르고 주문해 주세요. 결제는 매장에서 해요.</p></div></div>
+
+    <form th:action="@{/order}" method="post" data-once class="split">
+        <input type="hidden" name="orderToken" th:value="${orderToken}">
+        <section class="card stack">
+            <div class="field">
+                <span class="label">받는 방법</span>
+                <div class="segmented" role="radiogroup" aria-label="받는 방법">
+                    <label th:each="t, st : ${pickupTypes}"><input type="radio" name="pickupType" th:value="${t.name()}" th:checked="${t.name() == 'TAKEOUT'}"><span th:text="${t.label}">포장</span></label>
+                </div>
+            </div>
+            <div class="field">
+                <label for="request">요청사항 (선택)</label>
+                <textarea id="request" name="request" class="textarea" maxlength="200" placeholder="예) 얼음 적게, 컵홀더 주세요"></textarea>
+            </div>
+            <div>
+                <span class="label">주문 메뉴</span>
+                <div class="cart-line" th:each="l : ${cart.lines}" style="grid-template-columns:52px minmax(0,1fr) auto">
+                    <div class="tile sm" th:classappend="|tone-${l.tone}|"><th:block th:replace="~{fragments/ui :: icon(${l.icon})}"/></div>
+                    <div><b th:text="|${l.productName} × ${l.quantity}|">아메리카노 × 2</b>
+                        <div class="muted small" th:text="${l.optionText.isEmpty()} ? '기본' : ${l.optionText}">ICE</div></div>
+                    <b class="tnum" th:text="|${#numbers.formatInteger(l.lineAmount, 1, 'COMMA')}원|">8,000원</b>
+                </div>
+            </div>
+        </section>
+        <aside class="card">
+            <div class="card-head"><h2>결제 금액</h2></div>
+            <div class="sum-row"><span>메뉴 금액</span><span class="tnum" th:text="|${#numbers.formatInteger(cart.totalAmount, 1, 'COMMA')}원|">0원</span></div>
+            <div class="sum-row"><span>할인</span><span class="tnum" th:text="|-${#numbers.formatInteger(cart.discountAmount, 1, 'COMMA')}원|">0원</span></div>
+            <div class="sum-row"><span>적립 예정 포인트</span><span class="tnum" th:text="|${#numbers.formatInteger(cart.payAmount / 100, 1, 'COMMA')}P|">0P</span></div>
+            <div class="sum-row total"><span>결제할 금액</span><span class="v tnum" th:text="|${#numbers.formatInteger(cart.payAmount, 1, 'COMMA')}원|">0원</span></div>
+            <button type="submit" class="btn primary lg block" style="margin-top:16px">주문하기</button>
+            <p class="muted small" style="margin-top:10px">가격과 할인은 주문하는 순간을 기준으로 다시 계산돼요.</p>
+        </aside>
+    </form>
+</main>
+</body>
+</html>

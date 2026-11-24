@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/admin}">
+<head><title>할인</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>관리자</span><span class="sep">›</span><span>메뉴</span><span class="sep">›</span><b>할인</b></nav>
+<main layout:fragment="content" class="content">
+    <div class="page-header"><div><h1 class="page-title">할인</h1><p class="page-sub">오늘 걸린 할인은 고객 첫 화면 '오늘의 할인'에 보여요. 같은 메뉴에 겹치면 할인 금액이 큰 하나만 적용돼요.</p></div>
+        <div class="actions"><a class="btn soft" th:href="@{/admin/analysis/menus}">AI 할인 추천 보기</a></div></div>
+
+    <section class="card">
+        <div class="card-head"><h2>할인 만들기</h2></div>
+        <form th:action="@{/admin/discounts}" method="post" class="inline-form" data-once>
+            <div class="field" style="min-width:200px"><label for="d-product">메뉴</label>
+                <select class="select" id="d-product" name="productId" required>
+                    <option th:each="p : ${products}" th:value="${p.id}" th:text="|${p.name} (${#numbers.formatInteger(p.price, 1, 'COMMA')}원)|">메뉴</option>
+                </select></div>
+            <div class="field" style="flex:1;min-width:160px"><label for="d-name">이름 (선택)</label><input class="input" id="d-name" name="name" maxlength="40" placeholder="예) 주말 할인"></div>
+            <div class="field"><label for="d-type">방식</label>
+                <select class="select" id="d-type" name="type"><option th:each="t : ${types}" th:value="${t.name()}" th:text="${t.label}">정률</option></select></div>
+            <div class="field"><label for="d-value">값</label><input class="input" id="d-value" name="value" type="number" min="1" value="10" required style="width:100px"></div>
+            <div class="field"><label for="d-start">시작</label><input class="input" id="d-start" name="startDate" type="date" th:value="${today}" required></div>
+            <div class="field"><label for="d-end">끝</label><input class="input" id="d-end" name="endDate" type="date" th:value="${today}" required></div>
+            <button type="submit" class="btn primary">만들기</button>
+        </form>
+    </section>
+
+    <nav class="segmented" aria-label="상태">
+        <a th:each="s : ${ {'ACTIVE','SCHEDULED','ENDED','PAUSED','ALL'} }" th:href="@{/admin/discounts(state=${s})}" th:classappend="${state == s} ? 'on'">
+            <span th:text="${s == 'ACTIVE'} ? '진행 중' : (${s == 'SCHEDULED'} ? '예정' : (${s == 'ENDED'} ? '종료' : (${s == 'PAUSED'} ? '중지' : '전체')))">진행 중</span>
+            <span class="n" th:text="${counts[s]}">0</span></a>
+    </nav>
+
+    <section class="card flush">
+        <div class="table-box">
+            <table class="t">
+                <thead><tr><th>할인</th><th>메뉴</th><th class="num">할인</th><th class="num">할인가</th><th>기간</th><th>출처</th><th>상태</th><th></th></tr></thead>
+                <tbody>
+                <tr th:each="d : ${discounts}" th:with="code=${d.stateCode(today)}" th:classappend="${code == 'ENDED' or code == 'PAUSED'} ? 'dim'">
+                    <td class="cell-title"><b th:text="${d.name}">할인</b></td>
+                    <td th:text="${d.product.name}">메뉴</td>
+                    <td class="num" th:text="${d.valueText}">15%</td>
+                    <td class="num" th:text="|${#numbers.formatInteger(d.product.price - d.amountFor(d.product.price), 1, 'COMMA')}원|">0원</td>
+                    <td class="tnum nowrap" th:text="${d.startDate == d.endDate} ? ${#temporals.format(d.startDate, 'M.d')} : |${#temporals.format(d.startDate, 'M.d')} ~ ${#temporals.format(d.endDate, 'M.d')}|">기간</td>
+                    <td><span class="chip" th:classappend="${d.source.name() == 'AI'} ? 'cream' : 'outline'" th:text="${d.source.label}">직접</span></td>
+                    <td><span class="chip" th:classappend="${code == 'ACTIVE'} ? 'solid' : (${code == 'SCHEDULED'} ? 'cream' : 'grey')" th:text="${d.stateLabel(today)}">진행 중</span></td>
+                    <td data-label="" class="nowrap">
+                        <form th:action="@{/admin/discounts/{id}/toggle(id=${d.id})}" method="post" class="inline">
+                            <input type="hidden" name="state" th:value="${state}">
+                            <button type="submit" class="btn sm ghost" th:text="${d.active} ? '멈추기' : '다시 켜기'">멈추기</button></form>
+                        <form th:action="@{/admin/discounts/{id}/delete(id=${d.id})}" method="post" class="inline">
+                            <input type="hidden" name="state" th:value="${state}">
+                            <button type="submit" class="btn sm ghost" data-confirm="이 할인을 지울까요?" data-confirm-body="지난 주문의 할인 금액은 그대로 남아요." data-confirm-ok="지우기" data-danger>지우기</button></form>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+            <div class="empty" th:if="${discounts.isEmpty()}">이 상태의 할인이 없어요.</div>
+        </div>
+    </section>
+</main>
+</body>
+</html>

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/admin}">
+<head><title>매출 리포트</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>관리자</span><span class="sep">›</span><b>매출 리포트</b></nav>
+<main layout:fragment="content" class="content" th:with="r=${report}">
+    <div class="page-header">
+        <div><div class="eyebrow" th:text="|${#temporals.format(r.from, 'yyyy.M.d')} ~ ${#temporals.format(r.to, 'yyyy.M.d')}|">기간</div>
+            <h1 class="page-title">매출 리포트</h1><p class="page-sub">취소된 주문은 빼고 계산해요.</p></div>
+        <div class="actions">
+            <a class="btn" th:href="${days != null} ? @{/admin/sales.csv(days=${days})} : @{/admin/sales.csv(from=${from},to=${to})}"><th:block th:replace="~{fragments/ui :: icon('download')}"/>CSV 내려받기</a>
+        </div>
+    </div>
+
+    <div class="row wrap" style="gap:12px">
+        <nav class="segmented" aria-label="기간">
+            <a th:each="d : ${ {7, 30, 90} }" th:href="@{/admin/sales(days=${d})}" th:classappend="${days == d} ? 'on'" th:text="|최근 ${d}일|">최근 7일</a>
+        </nav>
+        <form th:action="@{/admin/sales}" method="get" class="row">
+            <label for="from" class="sr-only">시작</label><input class="input" id="from" type="date" name="from" th:value="${from}" style="width:auto">
+            <span class="muted">~</span>
+            <label for="to" class="sr-only">끝</label><input class="input" id="to" type="date" name="to" th:value="${to}" style="width:auto">
+            <button class="btn" type="submit">보기</button>
+        </form>
+    </div>
+
+    <div class="grid grid-4">
+        <div class="card kpi"><div class="label">매출</div><div class="value brown tnum" th:text="|${#numbers.formatInteger(r.revenue, 1, 'COMMA')}원|">0원</div></div>
+        <div class="card kpi"><div class="label">주문</div><div class="value tnum"><th:block th:text="${#numbers.formatInteger(r.orders, 1, 'COMMA')}">0</th:block><small>건</small></div></div>
+        <div class="card kpi"><div class="label">객단가</div><div class="value tnum" th:text="|${#numbers.formatInteger(r.avgBasket, 1, 'COMMA')}원|">0원</div></div>
+        <div class="card kpi"><div class="label">할인 금액</div><div class="value tnum" th:text="|${#numbers.formatInteger(r.discount, 1, 'COMMA')}원|">0원</div></div>
+    </div>
+
+    <section class="card">
+        <div class="card-head"><h2>일별 매출</h2></div>
+        <div class="week-chart" th:classappend="${r.daily.size() > 14} ? 'dense'">
+            <div class="col" th:each="b, st : ${r.daily}" th:title="|${b.label} ${#numbers.formatInteger(b.value, 1, 'COMMA')}원|">
+                <span class="v" th:if="${r.daily.size() <= 14}" th:text="${b.value >= 10000} ? |${#numbers.formatDecimal(b.value / 10000.0, 1, 1)}만| : ${b.value}">0</span>
+                <div class="bar" th:classappend="${b.highlight} ? 'on'" th:style="|height:${b.pct}%|"></div>
+                <span class="l" th:text="${r.daily.size() <= 31 or st.index % 7 == 0} ? ${b.label} : ''">11.24</span>
+            </div>
+        </div>
+    </section>
+
+    <div class="grid grid-2">
+        <section class="card">
+            <div class="card-head"><h2>시간대별 매출</h2><span class="sub">가장 많은 시간 강조</span></div>
+            <div class="week-chart dense" style="height:150px">
+                <div class="col" th:each="b : ${r.hourly}" th:title="|${b.label} ${#numbers.formatInteger(b.value, 1, 'COMMA')}원|">
+                    <div class="bar" th:classappend="${b.highlight} ? 'on'" th:style="|height:${b.pct}%|"></div>
+                    <span class="l" th:text="${b.label}">7시</span>
+                </div>
+            </div>
+        </section>
+        <section class="card">
+            <div class="card-head"><h2>카테고리별 매출</h2></div>
+            <div class="hbars">
+                <div class="hbar" th:each="b, st : ${r.byCategory}">
+                    <span class="name" th:text="${b.label}">커피</span>
+                    <div class="progress" th:classappend="${st.first} ? 'brown'"><i th:style="|width:${b.pct}%|"></i></div>
+                    <span class="v" th:text="${b.sub}">0%</span>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <section class="card flush">
+        <div class="card-head"><h2>메뉴별 매출</h2></div>
+        <div class="table-box">
+            <table class="t">
+                <thead><tr><th>메뉴</th><th>카테고리</th><th class="num">수량</th><th class="num">매출</th><th class="num">비중</th><th class="num">할인 판매</th></tr></thead>
+                <tbody>
+                <tr th:each="p : ${r.byProduct}">
+                    <td class="cell-title"><b th:text="${p.name}">메뉴</b></td>
+                    <td th:text="${p.category}">커피</td>
+                    <td class="num" th:text="${#numbers.formatInteger(p.qty, 1, 'COMMA')}">0</td>
+                    <td class="num" th:text="|${#numbers.formatInteger(p.revenue, 1, 'COMMA')}원|">0원</td>
+                    <td class="num" th:text="|${p.share}%|">0%</td>
+                    <td class="num" th:text="${p.discountShare > 0} ? |${p.discountShare}%| : '-'">-</td>
+                </tr>
+                </tbody>
+            </table>
+            <div class="empty" th:if="${r.byProduct.isEmpty()}">이 기간에 판매가 없어요.</div>
+        </div>
+    </section>
+</main>
+</body>
+</html>

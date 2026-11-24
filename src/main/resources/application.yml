@@ -1,0 +1,71 @@
+####################################
+# Port & Project Name
+####################################
+server:
+  port: 8080
+
+spring:
+  application:
+    name: Teagather
+
+  devtools:
+    restart:
+      enabled: true
+      exclude: "static/**,templates/**"
+
+  thymeleaf:
+    cache: false
+
+  web:
+    locale: ko_KR
+    locale-resolver: fixed
+
+  ####################################
+  # 기본 DB : H2 파일 (설치 없이 실행, data/teagather.mv.db — 지우면 처음부터)
+  # MySQL 로 실행하려면 : ./gradlew bootRun --args='--spring.profiles.active=mysql'
+  ####################################
+  datasource:
+    driver-class-name: org.h2.Driver
+    url: jdbc:h2:file:./data/teagather;MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE;AUTO_SERVER=TRUE
+    username: sa
+    password: ""
+
+  jpa:
+    open-in-view: true
+    hibernate:
+      ddl-auto: update
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          batch_size: 200
+        order_inserts: true
+
+  servlet:
+    encoding:
+      charset: UTF-8
+
+####################################
+# Teagather 설정
+####################################
+app:
+  admin:
+    username: admin
+    password: admin1234       # 꼭 바꿔서 사용하세요
+
+  # 처음 실행할 때 예시 데이터 (카테고리·메뉴·옵션·고객 120명·최근 90일 주문)
+  seed:
+    enabled: true
+    customer-password: "1234"
+
+  # PyTorch 분석 (analytics/teagather_analysis.py)
+  analysis:
+    python: python                          # 파이썬 실행 파일 (예: C:/Python39/python.exe, python3)
+    script: analytics/teagather_analysis.py
+    work-dir: analytics/work
+    timeout-seconds: 180
+    run-on-startup: true                    # 분석 결과가 없으면 서버 시작 뒤 한 번 실행
+    cron: "0 0 5 * * *"                     # 매일 05:00 다시 분석

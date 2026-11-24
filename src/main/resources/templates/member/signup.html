@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>회원가입 · Teagather</title>
+    <link rel="icon" type="image/png" th:href="@{/images/logo-badge-brown-trim.png}">
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body class="ui">
+<main class="auth-page">
+    <form class="auth-card" th:action="@{/member/signup}" th:object="${signupForm}" method="post" data-once>
+        <a class="logo" th:href="@{/}"><img th:src="@{/images/logo.png}" alt="Teagather"></a>
+        <h1>회원가입</h1>
+        <div class="field"><label for="username">아이디</label>
+            <input class="input" id="username" th:field="*{username}" autocomplete="username" required maxlength="30">
+            <span class="field-error" th:if="${#fields.hasErrors('username')}" th:errors="*{username}"></span></div>
+        <div class="field"><label for="password">비밀번호</label>
+            <input class="input" id="password" type="password" th:field="*{password}" autocomplete="new-password" required>
+            <span class="field-error" th:if="${#fields.hasErrors('password')}" th:errors="*{password}"></span></div>
+        <div class="field"><label for="password2">비밀번호 확인</label>
+            <input class="input" id="password2" type="password" th:field="*{password2}" autocomplete="new-password" required>
+            <span class="field-error" th:if="${#fields.hasErrors('password2')}" th:errors="*{password2}"></span></div>
+        <div class="field"><label for="name">이름</label>
+            <input class="input" id="name" th:field="*{name}" autocomplete="name" required maxlength="20">
+            <span class="field-error" th:if="${#fields.hasErrors('name')}" th:errors="*{name}"></span></div>
+        <div class="field"><label for="phone">연락처 (선택)</label>
+            <input class="input" id="phone" th:field="*{phone}" autocomplete="tel" placeholder="010-0000-0000"></div>
+        <div class="field"><label for="email">이메일 (선택)</label>
+            <input class="input" id="email" type="email" th:field="*{email}" autocomplete="email">
+            <span class="field-error" th:if="${#fields.hasErrors('email')}" th:errors="*{email}"></span></div>
+        <label class="check"><input type="checkbox" th:field="*{marketingAgree}"> 할인·신메뉴 소식 받기 (선택)</label>
+        <button type="submit" class="btn primary lg block">가입하기</button>
+        <div class="links"><a th:href="@{/member/login}">이미 계정이 있어요</a><a th:href="@{/}">홈으로</a></div>
+    </form>
+</main>
+</body>
+</html>

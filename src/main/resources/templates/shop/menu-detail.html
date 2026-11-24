@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/shop}">
+<head><title th:text="${c.product.name}">메뉴</title></head>
+<body>
+<main layout:fragment="content" class="shop-main" th:with="p=${c.product}">
+    <nav class="crumbs" aria-label="현재 위치"><a th:href="@{/menu}">메뉴</a><span class="sep">›</span>
+        <a th:href="@{/menu(category=${p.category.id})}" th:text="${p.category.name}">커피</a><span class="sep">›</span><b th:text="${p.name}">아메리카노</b></nav>
+
+    <div class="detail">
+        <div class="tile" th:classappend="|tone-${p.category.toneOrDefault}|" style="border-radius:24px">
+            <th:block th:replace="~{fragments/ui :: icon(${p.category.iconOrDefault})}"/>
+        </div>
+
+        <form th:action="@{/cart/add}" method="post" data-price-calc th:attr="data-base=${p.price},data-discount=${c.discountAmount}">
+            <div class="row wrap" style="margin-bottom:10px">
+                <span class="chip solid" th:if="${p.todayMenu}">오늘의 메뉴</span>
+                <span class="chip dark" th:if="${p.fresh}">NEW</span>
+                <span class="chip red" th:if="${c.discounted}" th:text="|${c.discount.name} ${c.discountBadge}|">할인</span>
+                <span class="chip grey" th:if="${p.status.name() == 'SOLD_OUT'}">품절</span>
+            </div>
+            <h1 th:text="${p.name}">아메리카노</h1>
+            <p class="desc" th:text="${p.description}">설명</p>
+            <div class="row wrap" style="margin-top:12px"><span class="chip outline" th:each="t : ${p.tagList}" th:text="|#${t}|">#쌉쌀</span></div>
+            <div class="big-price"><span th:replace="~{fragments/ui :: price(${c})}"></span></div>
+
+            <input type="hidden" name="productId" th:value="${p.id}">
+            <fieldset class="opt-group" th:each="g : ${groups}">
+                <legend><span th:text="${g.name}">온도</span>
+                    <span class="chip" th:classappend="${g.required} ? 'cream' : 'outline'" th:text="${g.required} ? '필수' : (${g.multiple} ? '여러 개 선택' : '선택')">필수</span></legend>
+                <div class="opt-items">
+                    <label class="opt" th:each="it, st : ${g.items}">
+                        <input th:type="${g.multiple} ? 'checkbox' : 'radio'" th:name="|opt_${g.id}|"
+                               th:value="${it.id}" th:attr="data-extra=${it.extraPrice},data-group=${g.id}"
+                               th:checked="${g.required and st.first}" th:required="${g.required and !g.multiple}"
+                               th:id="|opt-${it.id}|">
+                        <span><th:block th:text="${it.name}">ICE</th:block>
+                            <small th:if="${it.extraPrice > 0}" th:text="|+${#numbers.formatInteger(it.extraPrice, 1, 'COMMA')}|">+500</small></span>
+                    </label>
+                </div>
+            </fieldset>
+
+            <div class="opt-group row" style="justify-content:space-between">
+                <span class="label">수량</span>
+                <div class="qty" data-qty>
+                    <button type="button" data-step="-1" aria-label="하나 빼기">−</button>
+                    <input type="number" name="quantity" value="1" min="1" max="20" aria-label="수량">
+                    <button type="button" data-step="1" aria-label="하나 더">+</button>
+                </div>
+            </div>
+            <div class="sum-row total"><span>합계</span><span class="v tnum" data-total>0원</span></div>
+
+            <div class="row" style="margin-top:16px" th:if="${p.orderable}">
+                <th:block sec:authorize="isAuthenticated()">
+                    <button type="submit" class="btn lg" style="flex:1">장바구니 담기</button>
+                    <button type="submit" class="btn lg primary" style="flex:1" name="go" value="order">바로 주문</button>
+                </th:block>
+                <a sec:authorize="!isAuthenticated()" class="btn lg primary block" th:href="@{/member/login(next=|/menu/${p.id}|)}">로그인하고 주문하기</a>
+            </div>
+            <div class="banner" style="margin-top:16px" th:unless="${p.orderable}">지금은 품절이에요. 조금 뒤 다시 확인해 주세요.</div>
+        </form>
+    </div>
+</main>
+</body>
+</html>
