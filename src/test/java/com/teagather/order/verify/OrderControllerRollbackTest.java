@@ -3,6 +3,8 @@ package com.teagather.order.verify;
 import com.teagather.member.entity.Member;
 import com.teagather.order.cart.Cart;
 import com.teagather.order.constant.PickupType;
+import com.teagather.order.entity.CustomerOrder;
+import com.teagather.order.repository.OrderDaySeqRepository;
 import com.teagather.order.repository.OrderRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -42,6 +44,9 @@ class OrderControllerRollbackTest extends OrderTestSupport {
 
     @MockitoSpyBean
     OrderRepository orderRepository;
+
+    @MockitoSpyBean
+    OrderDaySeqRepository orderDaySeqRepository;
 
     // ===== 주입 경로 B (구현과 무관) : 주문 저장이 항상 실패 =====
     @Test
@@ -89,23 +94,24 @@ class OrderControllerRollbackTest extends OrderTestSupport {
         assertThat(again.getResponse().getRedirectedUrl()).as("주문이 된 것처럼 주문 목록으로 보내면 안 됨").isNotEqualTo("/orders");
     }
 
-    // ===== 주입 경로 A (현재 번호 발급 방식 전용) : 오늘 이미 있는 주문번호와 충돌 =====
-    //  번호 발급이 카운터 방식으로 바뀌면 이 주입은 효과가 없어 주문이 성공할 수 있다
-    //  → 결과는 "깨끗한 성공" 이거나 "안전한 실패" 둘 중 하나여야 한다
+    // ===== 주입 경로 A : 오늘 이미 있는 주문번호와 충돌 =====
+    //  일자별 카운터가 이미 쓴 번호를 다시 내주도록 만든다 → 매 시도마다 order_no unique 위반
+    //  → 재시도를 다 써도 실패하므로 결과는 "깨끗한 성공" 이거나 "안전한 실패" 둘 중 하나여야 한다
+    //  (수정 전 기준선은 count/exists 를 속이는 방식으로 쟀다 : docs/verification/baseline-before.md)
     @Test
     @DisplayName("주문번호 충돌 - 깨끗하게 성공하거나 안전하게 실패해야 한다 (500·장바구니 소실·거짓 안내 금지)")
     void orderNoConflictIsCleanSuccessOrSafeFailure() throws Exception {
         Member other = newCustomer("rb-web-first");
-        orderService.place(other, cartWithOneLine(), PickupType.TAKEOUT, null);   // 오늘 0001 번 차지
+        CustomerOrder first = orderService.place(other, cartWithOneLine(), PickupType.TAKEOUT, null);   // 오늘 번호 하나 차지
+        int taken = Integer.parseInt(first.getOrderNo().substring(first.getOrderNo().lastIndexOf('-') + 1));
 
         Member m = newCustomer("rb-web-a");
         MockHttpSession session = sessionWithCartLine(m);
         String token = checkoutToken(m, session);
         Snapshot before = snapshot(m);
 
-        // 현재 nextOrderNo 가 "오늘 주문 0건, 0001 번은 비어 있음" 으로 착각하게 만든다
-        doReturn(0L).when(orderRepository).countByOrderedAtGreaterThanEqualAndOrderedAtLessThan(any(), any());
-        doReturn(false).when(orderRepository).existsByOrderNo(anyString());
+        // 카운터가 이미 쓴 번호를 다시 내주게 만든다
+        doReturn(taken).when(orderDaySeqRepository).currentNo(any());
 
         MvcResult r = submit(m, session, token);
         recordBaseline("A 번호충돌", r, session, before, m);

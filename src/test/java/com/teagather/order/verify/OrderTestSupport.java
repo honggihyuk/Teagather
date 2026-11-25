@@ -6,6 +6,7 @@ import com.teagather.member.repository.MemberRepository;
 import com.teagather.order.cart.Cart;
 import com.teagather.order.constant.OrderStatus;
 import com.teagather.order.entity.CustomerOrder;
+import com.teagather.order.repository.OrderDaySeqRepository;
 import com.teagather.order.repository.OrderItemRepository;
 import com.teagather.order.repository.OrderRepository;
 import com.teagather.order.service.OrderService;
@@ -32,6 +33,7 @@ abstract class OrderTestSupport {
     @Autowired protected OrderService orderService;
     @Autowired protected OrderRepository orderRepository;
     @Autowired protected OrderItemRepository orderItemRepository;
+    @Autowired protected OrderDaySeqRepository orderDaySeqRepository;
     @Autowired protected MemberRepository memberRepository;
     @Autowired protected ProductRepository productRepository;
     @Autowired protected CategoryRepository categoryRepository;
@@ -59,6 +61,7 @@ abstract class OrderTestSupport {
         new TransactionTemplate(txManager).executeWithoutResult(s -> {
             orderItemRepository.deleteAllInBatch();
             orderRepository.deleteAllInBatch();
+            orderDaySeqRepository.deleteAllInBatch();   // 일자별 주문번호 카운터도 처음부터
             memberRepository.deleteAll(memberRepository.findByRole(MemberRole.CUSTOMER));
             productRepository.deleteAll();
             categoryRepository.deleteAll();
