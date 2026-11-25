@@ -49,9 +49,24 @@ spring:
       charset: UTF-8
 
 ####################################
+# 운영 지표 (ADMIN 만 접근)
+####################################
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics
+
+####################################
 # Teagather 설정
 ####################################
 app:
+  # 주문 방어 로직 (docs/research 참고)
+  order:
+    safe-place:
+      enabled: true           # false 면 재시도 없이 한 번만 시도 (되돌리기용 스위치)
+      max-retries: 2          # 주문번호 충돌 시 새 트랜잭션으로 다시 시도하는 횟수
+
   admin:
     username: admin
     password: admin1234       # 꼭 바꿔서 사용하세요

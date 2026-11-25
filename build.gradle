@@ -30,6 +30,9 @@ dependencies {
     implementation 'nz.net.ultraq.thymeleaf:thymeleaf-layout-dialect'
     implementation 'org.springframework.boot:spring-boot-starter-webmvc'
 
+    // 추가(운영) - 주문 방어 로직 지표 (order.place.*), /actuator/health·metrics
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
     compileOnly 'org.projectlombok:lombok'
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
     // 기본은 H2 파일 DB (설치 없이 실행). MySQL 은 mysql 프로필
