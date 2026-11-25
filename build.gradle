@@ -44,13 +44,32 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-starter-thymeleaf-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
     testImplementation 'org.springframework.security:spring-security-test'
+
+    // 추가(검증) - MySQL 실DB 검증 (Docker 없으면 자동으로 건너뜀, @Tag("mysql"))
+    testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+    testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
+    testImplementation 'org.testcontainers:testcontainers-mysql'
     testCompileOnly 'org.projectlombok:lombok'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     testAnnotationProcessor 'org.projectlombok:lombok'
 }
 
 tasks.named('test') {
-    useJUnitPlatform()
+    useJUnitPlatform {
+        excludeTags 'mysql'     // 기본 테스트는 빠르게 (H2)
+    }
+}
+
+// MySQL 실DB 검증 : ./gradlew mysqlTest (Docker 필요)
+tasks.register('mysqlTest', Test) {
+    description = 'Testcontainers MySQL 로 주문 방어 로직 검증'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform {
+        includeTags 'mysql'
+    }
+    testLogging { events 'passed', 'failed', 'skipped'; showStandardStreams = true }
 }
 
 tasks.withType(JavaCompile).configureEach {
