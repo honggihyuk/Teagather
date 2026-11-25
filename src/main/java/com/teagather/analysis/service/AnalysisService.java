@@ -32,8 +32,11 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.lang.management.ManagementFactory;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
@@ -79,13 +82,23 @@ public class AnalysisService {
         return running.get();
     }
 
+    // 이 JVM 이 시작한 시각. 이보다 먼저 시작된 RUNNING 은 이전 서버(재시작 전)가 남긴 것이다
+    private final LocalDateTime jvmStartedAt = LocalDateTime.ofInstant(
+            Instant.ofEpochMilli(ManagementFactory.getRuntimeMXBean().getStartTime()), ZoneId.systemDefault());
+
+    public LocalDateTime jvmStartedAt() {
+        return jvmStartedAt;
+    }
+
     // 멈춘 RUNNING 정리
-    //  - startup = true  : 서버가 막 떴으니 이 JVM 이 맡은 분석은 없다 → 남아 있는 RUNNING 전부
+    //  - startup = true  : JVM 시작 "전" 에 시작된 RUNNING 전부 (재시작 전 서버가 남긴 것)
+    //                      ※ 기준을 "지금" 으로 하면, 서버가 요청을 받기 시작한 뒤 ApplicationReadyEvent 가 늦게 도는 사이
+    //                        관리자가 막 시작한 분석까지 "재시작으로 중단" 으로 잘못 표시한다
     //  - startup = false : 제한 시간 + 여유를 넘긴 RUNNING 만 (다른 서버가 돌리는 중일 수 있으므로)
     // JVM 이 죽으면 run() 의 finally/catch 가 실행되지 않아 RUNNING 이 영구히 남는 문제를 막는다
     public int recoverStaleRuns(boolean startup) {
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime cutoff = startup ? now : now.minusSeconds(timeoutSeconds + STALE_MARGIN_SECONDS);
+        LocalDateTime cutoff = startup ? jvmStartedAt : now.minusSeconds(timeoutSeconds + STALE_MARGIN_SECONDS);
         String msg = startup ? MSG_RESTARTED : MSG_STALE;
         Integer n = new TransactionTemplate(txManager).execute(s ->
                 runRepository.failRunningStartedBefore(cutoff, now, msg, AnalysisStatus.RUNNING, AnalysisStatus.FAILED));

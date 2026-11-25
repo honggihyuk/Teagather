@@ -104,17 +104,23 @@ class AnalysisDefenseTest {
     }
 
     @Test
-    void 서버를_시작하면_남아있던_RUNNING_은_모두_실패로_정리된다() {
-        Long old = runningRun(LocalDateTime.now().minusHours(2));
-        Long recent = runningRun(LocalDateTime.now().minusSeconds(5));
+    void 서버를_시작하면_JVM_시작_전에_남은_RUNNING_만_실패로_정리된다() {
+        LocalDateTime jvmStart = analysisService.jvmStartedAt();
+        Long old = runningRun(jvmStart.minusHours(2));
+        Long justBefore = runningRun(jvmStart.minusSeconds(5));
+        Long noStart = runningRun(null);
+        // 서버가 요청을 받기 시작한 뒤(JVM 시작 이후) 관리자가 막 시작한 분석 : 정리하면 안 된다
+        Long startedByAdmin = runningRun(LocalDateTime.now());
         Long done = runRepository.save(AnalysisRun.builder().startedAt(LocalDateTime.now().minusDays(1))
                 .finishedAt(LocalDateTime.now().minusDays(1)).status(AnalysisStatus.SUCCESS).triggeredBy("test").build()).getId();
 
         int n = analysisService.recoverStaleRuns(true);
 
-        assertThat(n).isEqualTo(2);
+        assertThat(n).isEqualTo(3);
         assertFailed(old);
-        assertFailed(recent);
+        assertFailed(justBefore);
+        assertFailed(noStart);
+        assertThat(runRepository.findById(startedByAdmin).orElseThrow().getStatus()).isEqualTo(AnalysisStatus.RUNNING);
         assertThat(runRepository.findById(done).orElseThrow().getStatus()).isEqualTo(AnalysisStatus.SUCCESS);
     }
 
