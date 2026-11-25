@@ -6,6 +6,7 @@ import com.teagather.order.constant.PickupType;
 import com.teagather.order.entity.CustomerOrder;
 import com.teagather.order.repository.OrderDaySeqRepository;
 import com.teagather.order.repository.OrderRepository;
+import com.teagather.order.service.SafePlaceProperties;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,6 +42,8 @@ class OrderControllerRollbackTest extends OrderTestSupport {
     static final String ALREADY = "이미 처리한";
 
     @Autowired MockMvc mvc;
+
+    @Autowired SafePlaceProperties safePlaceProperties;
 
     @MockitoSpyBean
     OrderRepository orderRepository;
@@ -96,11 +99,12 @@ class OrderControllerRollbackTest extends OrderTestSupport {
 
     // ===== 주입 경로 A : 오늘 이미 있는 주문번호와 충돌 =====
     //  일자별 카운터가 이미 쓴 번호를 다시 내주도록 만든다 → 매 시도마다 order_no unique 위반
-    //  → 재시도를 다 써도 실패하므로 결과는 "깨끗한 성공" 이거나 "안전한 실패" 둘 중 하나여야 한다
+    //  → 재시도를 모두 써도 충돌하므로 결과는 반드시 "안전한 실패" 여야 한다
+    //    (성공 분기를 두면 스텁이 빠지는 회귀가 생겨도 아무것도 검증하지 않고 통과해 버린다)
     //  (수정 전 기준선은 count/exists 를 속이는 방식으로 쟀다 : docs/verification/baseline-before.md)
     @Test
-    @DisplayName("주문번호 충돌 - 깨끗하게 성공하거나 안전하게 실패해야 한다 (500·장바구니 소실·거짓 안내 금지)")
-    void orderNoConflictIsCleanSuccessOrSafeFailure() throws Exception {
+    @DisplayName("주문번호 충돌이 재시도 내내 계속되면 - 설정된 횟수만큼 시도한 뒤 안전하게 실패한다 (500·장바구니 소실·거짓 안내 금지)")
+    void orderNoConflictExhaustsRetriesAndFailsSafely() throws Exception {
         Member other = newCustomer("rb-web-first");
         CustomerOrder first = orderService.place(other, cartWithOneLine(), PickupType.TAKEOUT, null);   // 오늘 번호 하나 차지
         int taken = Integer.parseInt(first.getOrderNo().substring(first.getOrderNo().lastIndexOf('-') + 1));
@@ -110,21 +114,17 @@ class OrderControllerRollbackTest extends OrderTestSupport {
         String token = checkoutToken(m, session);
         Snapshot before = snapshot(m);
 
-        // 카운터가 이미 쓴 번호를 다시 내주게 만든다
+        // 카운터가 이미 쓴 번호를 다시 내주게 만든다 (앞선 준비 단계의 호출 기록은 지운다)
+        clearInvocations(orderDaySeqRepository);
         doReturn(taken).when(orderDaySeqRepository).currentNo(any());
 
         MvcResult r = submit(m, session, token);
         recordBaseline("A 번호충돌", r, session, before, m);
 
-        String to = r.getResponse().getRedirectedUrl();
-        if (to != null && to.startsWith("/orders/")) {
-            // 깨끗한 성공
-            assertThat(orderRepository.count()).isEqualTo(before.orders + 1);
-            assertThat(orderRepository.findAll()).extracting("orderNo").doesNotHaveDuplicates();
-            assertThat(cart(session).getLines()).as("성공했으면 장바구니는 비워짐").isEmpty();
-        } else {
-            assertSafeFailure(r, session, before, m);
-        }
+        assertSafeFailure(r, session, before, m);
+        int attempts = 1 + safePlaceProperties.effectiveRetries();      // 설정값에서 읽는다 (하드코딩 금지)
+        verify(orderDaySeqRepository, times(attempts).description("첫 시도 + 재시도 " + (attempts - 1) + "번"))
+                .currentNo(any());
     }
 
     // ===== 안전한 실패의 정의 =====

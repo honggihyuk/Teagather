@@ -103,6 +103,12 @@ class MemberAggregateConcurrencyTest extends OrderTestSupport {
                 placeFailed.get(), cancelFailed.get(), after.getOrderCount(), exp.orderCount(),
                 after.getTotalSpent(), exp.totalSpent(), after.getPoint(), exp.point());
 
+        // 요청 자체가 실패하면 집계가 "우연히" 맞아도 의미가 없다 → 실패 건수부터 확인한다
+        //  - 새 주문 : 각자 다른 세션·토큰이고 번호는 원자적 카운터에서 나오므로 실패할 이유가 없다 → 0
+        //  - 취소 : 미리 넣은 주문은 모두 PLACED(접수) 상태이고 주문마다 한 번만 취소한다
+        //           → 상태 때문에 거절될 수 없고, 회원 집계는 원자적 UPDATE 라 잠금 충돌로 실패할 이유도 없다 → 0
+        assertThat(placeFailed.get()).as("동시 주문 실패 건수").isZero();
+        assertThat(cancelFailed.get()).as("동시 취소 실패 건수").isZero();
         assertThat(after.getOrderCount()).as("주문 수 = 취소 안 된 주문 수").isEqualTo(exp.orderCount());
         assertThat(after.getTotalSpent()).as("누적 금액 = 취소 안 된 결제 합계").isEqualTo(exp.totalSpent());
         assertThat(after.getPoint()).as("포인트 = 취소 안 된 적립 합계").isEqualTo(exp.point());
