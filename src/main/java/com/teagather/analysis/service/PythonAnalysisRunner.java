@@ -70,7 +70,11 @@ public class PythonAnalysisRunner {
         reader.start();
 
         if (!p.waitFor(timeoutSeconds, TimeUnit.SECONDS)) {
+            // 파이썬이 띄운 자식 프로세스(torch worker 등)까지 정리한다. 부모를 먼저 죽이면 자식 목록을 못 얻으므로 자식부터
+            p.descendants().forEach(ProcessHandle::destroyForcibly);
             p.destroyForcibly();
+            // 실제로 끝났는지 확인 (Windows 는 살아 있는 동안 output.json 잠금이 남아 다음 실행에서 지우지 못한다)
+            if (!p.waitFor(5, TimeUnit.SECONDS)) log.warn("=======> 분석 프로세스가 강제 종료 뒤에도 남아 있어요 (pid {})", p.pid());
             throw new IllegalStateException("분석이 " + timeoutSeconds + "초 안에 끝나지 않았어요.");
         }
         reader.join(2000);

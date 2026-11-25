@@ -1,0 +1,23 @@
+####################################
+# MySQL 실DB 검증 전용 (Testcontainers, @Tag("mysql") → ./gradlew mysqlTest)
+#  - 접속 정보(url·계정)는 @ServiceConnection 이 컨테이너에서 넣는다
+#  - 예시 데이터·서버 시작 분석 끔
+####################################
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 30
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+  devtools:
+    restart:
+      enabled: false
+
+app:
+  seed:
+    enabled: false
+  analysis:
+    run-on-startup: false
+    cron: "-"

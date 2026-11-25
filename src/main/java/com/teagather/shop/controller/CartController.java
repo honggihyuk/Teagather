@@ -46,16 +46,13 @@ public class CartController {
 
     @PostMapping("/{index}/qty")
     public String qty(@PathVariable("index") int index, @RequestParam("quantity") int quantity) {
-        if (index >= 0 && index < cart.getLines().size()) {
-            if (quantity <= 0) cart.getLines().remove(index);
-            else cart.getLines().get(index).setQuantity(Math.min(20, quantity));
-        }
+        cart.updateQuantity(index, quantity);
         return "redirect:/cart";
     }
 
     @PostMapping("/{index}/delete")
     public String delete(@PathVariable("index") int index) {
-        if (index >= 0 && index < cart.getLines().size()) cart.getLines().remove(index);
+        cart.removeAt(index);
         return "redirect:/cart";
     }
 }

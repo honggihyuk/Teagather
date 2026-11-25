@@ -25,10 +25,12 @@ public class AnalysisLauncher {
         analysisService.run(triggeredBy);
     }
 
-    // 서버 시작 : 성공한 분석이 하나도 없으면 한 번 실행 (예시 데이터를 만든 뒤)
+    // 서버 시작 : 지난번에 멈춘 RUNNING 을 먼저 정리하고, 성공한 분석이 하나도 없으면 한 번 실행 (예시 데이터를 만든 뒤)
+    // 정리를 같은 메서드 안에서 먼저 하므로 첫 분석보다 늦게 실행될 일이 없다
     @Async
     @EventListener(ApplicationReadyEvent.class)
     public void onReady() {
+        analysisService.recoverStaleRuns(true);
         if (runOnStartup && analysisService.latestSuccess().isEmpty()) {
             log.info("=======> 분석 결과가 없어 처음 분석을 시작합니다");
             analysisService.run("startup");

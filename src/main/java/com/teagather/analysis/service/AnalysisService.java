@@ -24,14 +24,19 @@ import com.teagather.product.service.ProductService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import io.micrometer.core.instrument.MeterRegistry;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.lang.management.ManagementFactory;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
@@ -61,11 +66,48 @@ public class AnalysisService {
     private final PythonAnalysisRunner pythonRunner;
     private final JavaFallbackAnalyzer fallback;
     private final PlatformTransactionManager txManager;
+    private final MeterRegistry meterRegistry;
+
+    // 파이썬 제한 시간 + 여유. 이 시간이 지나도 RUNNING 이면 멈춘 분석으로 본다
+    @Value("${app.analysis.timeout-seconds:180}")
+    private long timeoutSeconds;
+    static final long STALE_MARGIN_SECONDS = 300;
+
+    static final String MSG_RESTARTED = "서버 재시작으로 중단된 분석이에요.";
+    static final String MSG_STALE = "제한 시간이 지나도 끝나지 않아 중단된 분석으로 정리했어요.";
 
     private final AtomicBoolean running = new AtomicBoolean(false);
 
     public boolean isRunning() {
         return running.get();
+    }
+
+    // 이 JVM 이 시작한 시각. 이보다 먼저 시작된 RUNNING 은 이전 서버(재시작 전)가 남긴 것이다
+    private final LocalDateTime jvmStartedAt = LocalDateTime.ofInstant(
+            Instant.ofEpochMilli(ManagementFactory.getRuntimeMXBean().getStartTime()), ZoneId.systemDefault());
+
+    public LocalDateTime jvmStartedAt() {
+        return jvmStartedAt;
+    }
+
+    // 멈춘 RUNNING 정리
+    //  - startup = true  : JVM 시작 "전" 에 시작된 RUNNING 전부 (재시작 전 서버가 남긴 것)
+    //                      ※ 기준을 "지금" 으로 하면, 서버가 요청을 받기 시작한 뒤 ApplicationReadyEvent 가 늦게 도는 사이
+    //                        관리자가 막 시작한 분석까지 "재시작으로 중단" 으로 잘못 표시한다
+    //  - startup = false : 제한 시간 + 여유를 넘긴 RUNNING 만 (다른 서버가 돌리는 중일 수 있으므로)
+    // JVM 이 죽으면 run() 의 finally/catch 가 실행되지 않아 RUNNING 이 영구히 남는 문제를 막는다
+    public int recoverStaleRuns(boolean startup) {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime cutoff = startup ? jvmStartedAt : now.minusSeconds(timeoutSeconds + STALE_MARGIN_SECONDS);
+        String msg = startup ? MSG_RESTARTED : MSG_STALE;
+        Integer n = new TransactionTemplate(txManager).execute(s ->
+                runRepository.failRunningStartedBefore(cutoff, now, msg, AnalysisStatus.RUNNING, AnalysisStatus.FAILED));
+        int count = n == null ? 0 : n;
+        if (count > 0) {
+            log.warn("=======> 멈춘 분석 {}건을 실패로 정리 ({})", count, startup ? "서버 시작" : "제한 시간 초과");
+            meterRegistry.counter("analysis.run.stale", "reason", startup ? "restart" : "timeout").increment(count);
+        }
+        return count;
     }
 
     // 분석 한 번 (이미 돌고 있으면 건너뛴다). 오래 걸리므로 AnalysisLauncher 가 비동기로 부른다
@@ -77,6 +119,12 @@ public class AnalysisService {
         TransactionTemplate tx = new TransactionTemplate(txManager);
         Long runId = null;
         try {
+            // 이 JVM 의 플래그만으로는 다른 서버(또는 재시작 전)의 실행을 모른다 → DB 도 확인
+            recoverStaleRuns(false);
+            if (Boolean.TRUE.equals(tx.execute(s -> runRepository.existsByStatus(AnalysisStatus.RUNNING)))) {
+                log.info("=======> 다른 곳에서 분석이 돌고 있어 건너뜀 ({})", triggeredBy);
+                return null;
+            }
             AnalysisRun run = tx.execute(s -> runRepository.save(AnalysisRun.builder()
                     .startedAt(LocalDateTime.now()).status(AnalysisStatus.RUNNING).triggeredBy(triggeredBy).build()));
             runId = run.getId();
@@ -268,10 +316,19 @@ public class AnalysisService {
     }
 
     // ===== 4. 적용 =====
+    // 더블클릭 · 관리자 두 명이 동시에 눌러도 한 번만 적용된다
+    //  1) 적용 표시를 조건부 UPDATE 로 먼저 차지한다 (바뀐 행이 0 이면 이미 누가 적용함 → 예외)
+    //  2) 그다음 할인 생성 등 부수효과. 같은 트랜잭션이라 중간에 실패하면 적용 표시도 함께 롤백된다
+    // 재시도하지 않는다 : 0 행은 "경합"이 아니라 "이미 끝난 일"이다
     @Transactional
     public String apply(Long insightId) {
         MenuInsight i = insightRepository.findById(insightId).orElseThrow(() -> new EntityNotFoundException("추천을 찾을 수 없어요."));
         if (i.isApplied()) throw new BusinessException("이미 적용한 추천이에요.");
+        LocalDateTime now = LocalDateTime.now();
+        if (insightRepository.markApplied(insightId, now) == 0) throw new BusinessException("이미 적용한 추천이에요.");
+        // 벌크 UPDATE 는 영속성 컨텍스트를 거치지 않으므로 메모리의 엔티티도 같은 값으로 맞춘다
+        i.setApplied(true);
+        i.setAppliedAt(now);
         Product p = i.getProduct();
         LocalDate today = LocalDate.now();
         String msg = switch (i.getKind()) {
@@ -290,8 +347,6 @@ public class AnalysisService {
                 yield p.getName() + " 을(를) 신메뉴로 출시했어요.";
             }
         };
-        i.setApplied(true);
-        i.setAppliedAt(LocalDateTime.now());
         return msg;
     }
 

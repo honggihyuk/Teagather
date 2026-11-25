@@ -2,12 +2,14 @@ package com.teagather.order.service;
 
 import com.teagather.common.exception.BusinessException;
 import com.teagather.member.entity.Member;
+import com.teagather.member.repository.MemberRepository;
 import com.teagather.order.cart.Cart;
 import com.teagather.order.cart.CartLine;
 import com.teagather.order.constant.OrderStatus;
 import com.teagather.order.constant.PickupType;
 import com.teagather.order.entity.CustomerOrder;
 import com.teagather.order.entity.OrderItem;
+import com.teagather.order.repository.OrderDaySeqRepository;
 import com.teagather.order.repository.OrderRepository;
 import com.teagather.product.entity.Discount;
 import com.teagather.product.entity.OptionGroup;
@@ -15,7 +17,9 @@ import com.teagather.product.entity.OptionItem;
 import com.teagather.product.entity.Product;
 import com.teagather.product.repository.ProductRepository;
 import com.teagather.product.service.DiscountService;
+import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityNotFoundException;
+import org.hibernate.Hibernate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -36,6 +40,9 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final ProductRepository productRepository;
     private final DiscountService discountService;
+    private final OrderDaySeqRepository daySeqRepository;
+    private final MemberRepository memberRepository;
+    private final EntityManager em;
 
     // ===== 장바구니 =====
 
@@ -68,6 +75,9 @@ public class OrderService {
 
     // ===== 주문 =====
 
+    // 주문 한 번 = 트랜잭션 한 번.
+    //  - 장바구니는 비우지 않는다 : 커밋이 끝난 뒤 호출한 쪽(컨트롤러)이 비운다. 실패하면 장바구니가 그대로 남는다
+    //  - 주문번호 충돌(DataIntegrityViolationException)은 여기서 잡지 않는다 : 트랜잭션 바깥에서 새로 다시 시도해야 한다
     @Transactional
     public CustomerOrder place(Member member, Cart cart, PickupType pickupType, String request) {
         if (cart.isEmpty()) throw new BusinessException("장바구니가 비어 있어요.");
@@ -95,8 +105,10 @@ public class OrderService {
         fillAmounts(o);
         o.setOrderNo(nextOrderNo(now));
         orderRepository.save(o);
-        applyToMember(member, o, +1);
-        cart.clear();
+        if (member != null) {
+            memberRepository.addOrder(member.getId(), o.getPayAmount(), o.getEarnedPoint(), o.getOrderedAt());
+            syncFromDb(member);
+        }
         return o;
     }
 
@@ -109,7 +121,8 @@ public class OrderService {
         o.setEarnedPoint((total - disc) / 100);
     }
 
-    // 고객 집계 : sign = +1 주문, -1 취소
+    // 고객 집계 (예시 데이터 만들 때만 사용) : sign = +1 주문, -1 취소
+    //  - 실제 주문·취소는 MemberRepository.addOrder/removeOrder 로 DB 에서 바로 더하고 뺀다 (동시 요청에도 값이 사라지지 않게)
     public static void applyToMember(Member m, CustomerOrder o, int sign) {
         if (m == null) return;
         m.setOrderCount(Math.max(0, m.getOrderCount() + sign));
@@ -120,15 +133,31 @@ public class OrderService {
         }
     }
 
+    // 주문번호 : yyMMdd-0001. 일자별 카운터 줄을 +1 하고 그 값을 쓴다
+    //  - +1 한 줄의 행 잠금은 이 주문 트랜잭션이 끝날 때까지 유지 → 같은 날 주문은 번호 발급 구간만 줄을 선다
+    //  - 그날 첫 주문이면 기존 주문의 마지막 번호부터 이어서 (예시 데이터·이전 방식으로 만든 주문과 겹치지 않게)
     private String nextOrderNo(LocalDateTime now) {
-        LocalDateTime start = now.toLocalDate().atStartOfDay();
-        long n = orderRepository.countByOrderedAtGreaterThanEqualAndOrderedAtLessThan(start, start.plusDays(1));
-        String no;
-        do {
-            n++;
-            no = now.format(NO_DAY) + "-" + String.format("%04d", n);
-        } while (orderRepository.existsByOrderNo(no));
-        return no;
+        LocalDate day = now.toLocalDate();
+        String prefix = now.format(NO_DAY);
+        int seed = daySeqRepository.existsById(day) ? 0 : lastSeqOf(prefix);
+        daySeqRepository.increment(day, seed);
+        int n = daySeqRepository.currentNo(day);
+        return prefix + "-" + String.format("%04d", n);
+    }
+
+    private int lastSeqOf(String prefix) {
+        String max = orderRepository.findMaxOrderNo(prefix);
+        if (max == null) return 0;
+        try {
+            return Integer.parseInt(max.substring(prefix.length() + 1));
+        } catch (RuntimeException e) {
+            return 0;
+        }
+    }
+
+    // DB 에서 바로 고친 회원 집계를 메모리의 Member 에도 반영 (나중에 이 객체가 다시 저장되며 옛 값으로 덮어쓰지 않게)
+    private void syncFromDb(Member m) {
+        if (m != null && Hibernate.isInitialized(m) && em.contains(m)) em.refresh(m);
     }
 
     @Transactional(readOnly = true)
@@ -152,7 +181,7 @@ public class OrderService {
         if (o.getMember() == null || !o.getMember().getId().equals(member.getId())) throw new EntityNotFoundException("주문을 찾을 수 없어요.");
         if (o.getStatus() != OrderStatus.PLACED) throw new BusinessException("이미 준비를 시작한 주문은 매장에 문의해 주세요.");
         o.setStatus(OrderStatus.CANCELED);
-        applyToMember(o.getMember(), o, -1);
+        removeFromMember(o);
         return o;
     }
 
@@ -171,8 +200,15 @@ public class OrderService {
         CustomerOrder o = get(id);
         if (!o.getStatus().isOpen()) throw new BusinessException("완료되었거나 이미 취소된 주문이에요.");
         o.setStatus(OrderStatus.CANCELED);
-        applyToMember(o.getMember(), o, -1);
+        removeFromMember(o);
         return o;
+    }
+
+    private void removeFromMember(CustomerOrder o) {
+        Member m = o.getMember();
+        if (m == null) return;
+        memberRepository.removeOrder(m.getId(), o.getPayAmount(), o.getEarnedPoint());
+        syncFromDb(m);
     }
 
     @Transactional(readOnly = true)

@@ -17,7 +17,7 @@ import org.springframework.security.web.authentication.AuthenticationSuccessHand
 import org.springframework.security.web.authentication.SavedRequestAwareAuthenticationSuccessHandler;
 
 // 로그인을 두 갈래로 나눈다 (InhaWorks 와 같은 방식)
-//  - 관리자 : /admin/**  → /admin/login, ADMIN 만
+//  - 관리자 : /admin/**, /actuator/** → /admin/login, ADMIN 만 (/actuator/health 는 공개)
 //  - 고객   : 나머지     → /member/login. 메뉴 구경은 로그인 없이, 장바구니부터 로그인
 // 체인마다 로그인할 수 있는 계정 종류를 나눈다 (관리자 계정은 고객 로그인 불가, 반대도)
 @Configuration
@@ -28,9 +28,10 @@ public class SecurityConfig {
     @Bean
     @Order(1)
     public SecurityFilterChain adminFilterChain(HttpSecurity http, UserDetailsService uds, PasswordEncoder encoder) throws Exception {
-        http.securityMatcher("/admin/**");
+        // 운영 지표(/actuator/**)도 관리자 체인에서 ADMIN 만 (health 는 상태 확인용으로 공개)
+        http.securityMatcher("/admin/**", "/actuator/**");
         http.authorizeHttpRequests(a -> a
-                .requestMatchers("/admin/login").permitAll()
+                .requestMatchers("/admin/login", "/actuator/health").permitAll()
                 .anyRequest().hasRole("ADMIN"));
         http.authenticationManager(loginManager(uds, encoder, true));
         http.formLogin(form -> form
