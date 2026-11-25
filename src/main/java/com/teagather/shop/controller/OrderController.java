@@ -58,6 +58,11 @@ public class OrderController {
                 ra.addFlashAttribute("shopMessage", "이 주문서는 접수가 끝났어요.");
                 return "redirect:/orders/" + placed;
             }
+            if (cart.isInFlight(token)) {
+                // 더블클릭 : 첫 요청이 아직 처리 중 → 결과가 곧 나오는 주문 내역으로 안내 (주문서로 보내면 빈 장바구니만 보인다)
+                ra.addFlashAttribute("shopMessage", "주문을 처리하고 있어요. 주문 내역에서 확인해 주세요.");
+                return "redirect:/orders";
+            }
             // 새로 고친 뒤의 옛 주문서 등 : 주문은 없으니 주문서를 다시 보여 준다
             ra.addFlashAttribute("errorMessage", "주문서가 새로 고쳐졌어요. 내용을 확인하고 다시 주문해 주세요.");
             return "redirect:/order";
